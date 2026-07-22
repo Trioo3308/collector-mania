@@ -342,6 +342,19 @@ const SAVE_KEY = 'collectorMania_save_v1';
 const CONFIG_KEY = 'collectorMania_firebaseConfig';
 const DEVICE_KEY = 'collectorMania_deviceId';
 
+// Shared family Firebase project — every player connects here automatically,
+// no setup screen needed. A player can still override this in Settings if
+// they ever want to point at a different project.
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB3FFFprq0neZm_YXEC5jui4AifA1I_L0Y",
+  authDomain: "collector-mania2.firebaseapp.com",
+  databaseURL: "https://collector-mania2-default-rtdb.firebaseio.com",
+  projectId: "collector-mania2",
+  storageBucket: "collector-mania2.firebasestorage.app",
+  messagingSenderId: "168589019405",
+  appId: "1:168589019405:web:f007e336086bea1c0e8844"
+};
+
 /* ---------- SAVE / LOAD (update-safe) ---------- */
 function defaultSave(){
   return {
@@ -812,13 +825,13 @@ function init(){
   setConnBadge(false);
 
   const savedConfigRaw = localStorage.getItem(CONFIG_KEY);
+  let configToUse = DEFAULT_FIREBASE_CONFIG;
   if(savedConfigRaw){
-    try{
-      const config = JSON.parse(savedConfigRaw);
-      document.getElementById('configInput').value = JSON.stringify(config, null, 2);
-      connectFirebase(config);
-    }catch(e){ console.warn('Stored config was invalid.'); }
+    try{ configToUse = JSON.parse(savedConfigRaw); }
+    catch(e){ console.warn('Stored config was invalid, falling back to default.'); }
   }
+  document.getElementById('configInput').value = JSON.stringify(configToUse, null, 2);
+  connectFirebase(configToUse);
 }
 init();
 </script>
