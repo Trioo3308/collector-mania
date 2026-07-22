@@ -102,6 +102,44 @@
   .odds{font-size:12px;color:var(--text-dim);text-align:center;max-width:420px;line-height:1.6;}
   .clicker-row{display:flex;gap:10px;justify-content:center;margin-top:6px;flex-wrap:wrap;}
 
+  /* SET PICKER (themed pulls) */
+  .set-picker{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:14px;}
+  .set-chip{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:999px;
+    padding:6px 12px;font-size:12px;font-weight:600;color:var(--text-dim);
+  }
+  .set-chip.active{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--text);border-color:transparent;}
+  .pull-target-label{font-size:12px;color:var(--text-dim);margin-top:-6px;margin-bottom:2px;}
+  .pull-target-label b{color:var(--text);}
+
+  /* GACHA MACHINE ANIMATION */
+  .pull-orb-wrap{position:relative;display:flex;justify-content:center;}
+  .pull-orb.charging{animation:chargeGlow .9s ease-in-out;}
+  @keyframes chargeGlow{
+    0%{box-shadow:0 0 40px rgba(143,107,255,.45), inset 0 0 30px rgba(143,107,255,.3); transform:scale(1) rotate(0deg);}
+    30%{box-shadow:0 0 60px rgba(255,107,214,.6), inset 0 0 40px rgba(255,107,214,.4); transform:scale(1.05) rotate(-3deg);}
+    60%{box-shadow:0 0 85px rgba(255,207,92,.75), inset 0 0 50px rgba(255,207,92,.5); transform:scale(1.09) rotate(3deg);}
+    100%{box-shadow:0 0 40px rgba(143,107,255,.45), inset 0 0 30px rgba(143,107,255,.3); transform:scale(1) rotate(0deg);}
+  }
+  .pull-orb.charging::after{content:'';}
+  .capsule-wrap{position:absolute;top:100%;left:50%;transform:translateX(-50%);width:0;height:0;pointer-events:none;}
+  .capsule{
+    position:absolute;left:50%;top:6px;transform:translate(-50%,0) scale(.6);font-size:52px;opacity:0;
+    animation:capsuleDrop .5s cubic-bezier(.34,1.56,.64,1) forwards;
+    filter:drop-shadow(0 8px 12px rgba(0,0,0,.5));
+  }
+  @keyframes capsuleDrop{
+    0%{transform:translate(-50%,-30px) scale(.6);opacity:0;}
+    60%{transform:translate(-50%,14px) scale(1.18);opacity:1;}
+    100%{transform:translate(-50%,0) scale(1);opacity:1;}
+  }
+  .capsule.cracking{animation:capsuleCrack .35s ease-in forwards;}
+  @keyframes capsuleCrack{
+    0%{transform:translate(-50%,0) scale(1) rotate(0deg);opacity:1;}
+    40%{transform:translate(-50%,0) scale(1.35) rotate(-10deg);opacity:1;}
+    100%{transform:translate(-50%,0) scale(.2) rotate(20deg);opacity:0;}
+  }
+
   /* REVEAL MODAL */
   .modal-backdrop{
     position:fixed;inset:0;background:rgba(6,4,16,.75);backdrop-filter:blur(3px);
@@ -244,7 +282,12 @@
   <!-- PULL VIEW -->
   <div class="view active" id="view-pull">
     <div class="panel pull-stage">
-      <div class="pull-orb" id="pullOrb">🎴</div>
+      <div class="set-picker" id="setPicker"></div>
+      <div class="pull-orb-wrap">
+        <div class="pull-orb" id="pullOrb">🎴</div>
+        <div class="capsule-wrap" id="capsuleWrap"></div>
+      </div>
+      <div class="pull-target-label" id="pullTargetLabel">Pulling from: <b>🎲 All Characters</b></div>
       <div class="pull-actions">
         <button class="btn-accent" id="pullOneBtn">Pull x1 — 50 🪙</button>
         <button class="btn-accent" id="pullTenBtn">Pull x10 — 450 🪙</button>
@@ -253,7 +296,7 @@
         <button class="btn-gold" id="playMemoryBtn">🧠 Play Memory Match for coins</button>
       </div>
       <div class="odds">
-        Common 55% · Rare 30% · Epic 12% · Legendary 3% — duplicate pulls auto-convert into bonus coins.
+        <span id="oddsLine">Common 55% · Rare 30% · Epic 12% · Legendary 3%</span> — duplicate pulls auto-convert into bonus coins.
         Coins also trickle in over time based on your collection.<br>
         6 themed collections, 30 characters total — complete a set for a bonus.<br>
         Play Memory Match for coins — fewer moves and a faster time earn more.
@@ -655,20 +698,35 @@ document.getElementById('memoryCloseBtn').addEventListener('click', ()=>{
 });
 
 /* ---------- PULLING ---------- */
-function weightedRoll(){
-  const total = Object.values(RARITIES).reduce((s,r)=>s+r.weight,0);
-  let roll = Math.random() * total;
-  for(const key in RARITIES){
-    roll -= RARITIES[key].weight;
-    if(roll <= 0) return key;
-  }
-  return 'common';
+const PULL_COST = { all: { single:50, ten:450 }, themed: { single:90, ten:800 } };
+
+// null = pull from the full 30-creature pool. A set id = themed pull, scoped
+// to just that set's 5 creatures (rarity odds renormalized over whatever
+// rarities that set actually has).
+let selectedSetId = null;
+
+function creaturePoolForPull(){
+  return selectedSetId ? CREATURES.filter(c => c.set === selectedSetId) : CREATURES;
 }
 
-function pullOne(){
-  const rarity = weightedRoll();
-  const pool = CREATURES.filter(c=>c.rarity===rarity);
-  const creature = pool[Math.floor(Math.random()*pool.length)];
+function pullCostSingle(){ return selectedSetId ? PULL_COST.themed.single : PULL_COST.all.single; }
+function pullCostTen(){ return selectedSetId ? PULL_COST.themed.ten : PULL_COST.all.ten; }
+
+function weightedRollFromPool(pool){
+  const availableRarities = Array.from(new Set(pool.map(c => c.rarity)));
+  const total = availableRarities.reduce((s, r) => s + RARITIES[r].weight, 0);
+  let roll = Math.random() * total;
+  for(const r of availableRarities){
+    roll -= RARITIES[r].weight;
+    if(roll <= 0) return r;
+  }
+  return availableRarities[availableRarities.length - 1];
+}
+
+function pullOne(pool){
+  const rarity = weightedRollFromPool(pool);
+  const rarityPool = pool.filter(c => c.rarity === rarity);
+  const creature = rarityPool[Math.floor(Math.random() * rarityPool.length)];
   const wasOwned = !!state.owned[creature.id];
   state.owned[creature.id] = (state.owned[creature.id]||0) + 1;
   state.totalPulls++;
@@ -678,6 +736,63 @@ function pullOne(){
     addCoins(bonusCoins);
   }
   return { creature, wasOwned, bonusCoins };
+}
+
+/* ---------- SET PICKER + PULL UI ---------- */
+function renderSetPicker(){
+  const wrap = document.getElementById('setPicker');
+  const allChip = `<button class="set-chip ${!selectedSetId?'active':''}" data-set="">🎲 All</button>`;
+  const setChips = SETS.map(s => `<button class="set-chip ${selectedSetId===s.id?'active':''}" data-set="${s.id}">${s.icon} ${s.name}</button>`);
+  wrap.innerHTML = [allChip].concat(setChips).join('');
+  wrap.querySelectorAll('.set-chip').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      selectedSetId = btn.dataset.set || null;
+      renderSetPicker();
+      updatePullUI();
+    });
+  });
+}
+
+function updatePullUI(){
+  const set = SETS.find(s => s.id === selectedSetId);
+  document.getElementById('pullTargetLabel').innerHTML = set
+    ? `Pulling from: <b>${set.icon} ${set.name}</b> (${set.blurb})`
+    : `Pulling from: <b>🎲 All Characters</b>`;
+  document.getElementById('pullOneBtn').textContent = `Pull x1 — ${pullCostSingle()} 🪙`;
+  document.getElementById('pullTenBtn').textContent = `Pull x10 — ${pullCostTen()} 🪙`;
+
+  const pool = creaturePoolForPull();
+  const availableRarities = Array.from(new Set(pool.map(c => c.rarity)));
+  const total = availableRarities.reduce((s, r) => s + RARITIES[r].weight, 0);
+  const order = ['common','rare','epic','legendary'];
+  const oddsStr = order
+    .filter(r => availableRarities.includes(r))
+    .map(r => `${RARITIES[r].label} ${Math.round(RARITIES[r].weight / total * 100)}%`)
+    .join(' · ');
+  document.getElementById('oddsLine').textContent = oddsStr;
+}
+
+/* ---------- GACHA MACHINE ANIMATION ---------- */
+function wait(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
+
+async function playGachaAnimation(){
+  const orb = document.getElementById('pullOrb');
+  const wrap = document.getElementById('capsuleWrap');
+  orb.classList.add('charging');
+  await wait(900);
+  orb.classList.remove('charging');
+  wrap.innerHTML = '<div class="capsule" id="capsuleEl">🔮</div>';
+  await wait(500);
+  const capsule = document.getElementById('capsuleEl');
+  if(capsule) capsule.classList.add('cracking');
+  await wait(320);
+  wrap.innerHTML = '';
+}
+
+function setPullControlsDisabled(disabled){
+  document.getElementById('pullOneBtn').disabled = disabled;
+  document.getElementById('pullTenBtn').disabled = disabled;
+  document.querySelectorAll('.set-chip').forEach(b => b.disabled = disabled);
 }
 
 // Checks every themed set the player hasn't already been paid out for; pays
@@ -706,29 +821,39 @@ function announceSetCompletions(newlyCompleted){
   toast(msg);
 }
 
-document.getElementById('pullOneBtn').addEventListener('click', ()=>{
-  if(state.coins < 50) return toast("Not enough coins yet — keep collecting!");
-  state.coins -= 50;
-  const result = pullOne();
+document.getElementById('pullOneBtn').addEventListener('click', async ()=>{
+  const cost = pullCostSingle();
+  if(state.coins < cost) return toast("Not enough coins yet — keep collecting!");
+  const pool = creaturePoolForPull();
+  setPullControlsDisabled(true);
+  await playGachaAnimation();
+  state.coins -= cost;
+  const result = pullOne(pool);
   const newlyCompleted = checkSetCompletions();
   persist();
   renderCoins();
   showSingleReveal(result);
   renderCollection();
   announceSetCompletions(newlyCompleted);
+  setPullControlsDisabled(false);
 });
 
-document.getElementById('pullTenBtn').addEventListener('click', ()=>{
-  if(state.coins < 450) return toast("Not enough coins yet — keep collecting!");
-  state.coins -= 450;
+document.getElementById('pullTenBtn').addEventListener('click', async ()=>{
+  const cost = pullCostTen();
+  if(state.coins < cost) return toast("Not enough coins yet — keep collecting!");
+  const pool = creaturePoolForPull();
+  setPullControlsDisabled(true);
+  await playGachaAnimation();
+  state.coins -= cost;
   const results = [];
-  for(let i=0;i<10;i++) results.push(pullOne());
+  for(let i=0;i<10;i++) results.push(pullOne(pool));
   const newlyCompleted = checkSetCompletions();
   persist();
   renderCoins();
   showMultiReveal(results);
   renderCollection();
   announceSetCompletions(newlyCompleted);
+  setPullControlsDisabled(false);
 });
 
 /* ---------- REVEAL UI ---------- */
@@ -1094,6 +1219,8 @@ function init(){
 
   renderCoins();
   renderCollection();
+  renderSetPicker();
+  updatePullUI();
   renderSuggestions(getLocalSuggestions());
   setConnBadge(false);
   announceSetCompletions(newlyCompleted);
