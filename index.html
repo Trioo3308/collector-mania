@@ -190,9 +190,12 @@
   .memory-result .reward{font-size:20px;font-weight:800;color:var(--gold);margin:4px 0 12px;}
 
   /* COLLECTION */
-  .collection-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+  .collection-stats{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
   .stat-chip{background:var(--panel-2);border-radius:10px;padding:8px 14px;font-size:12px;color:var(--text-dim);}
   .stat-chip b{color:var(--text);font-size:15px;display:block;}
+  .sell-all-btn{margin-left:auto;padding:8px 14px;font-size:13px;}
+  .sell-all-btn:disabled{opacity:.35;}
+  .dupe-hint{font-size:11px;color:var(--text-dim);margin:-6px 0 14px;}
   .collection-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;}
   .set-section{margin-bottom:26px;}
   .set-section:last-child{margin-bottom:0;}
@@ -215,6 +218,11 @@
   .creature-card .emoji{font-size:36px;}
   .creature-card .nm{font-size:12px;font-weight:700;margin-top:6px;}
   .creature-card .cnt{font-size:10px;color:var(--text-dim);margin-top:2px;}
+  .sell-dupe-btn{
+    margin-top:6px;padding:4px 8px;font-size:10px;font-weight:700;border-radius:8px;
+    background:linear-gradient(135deg,#ffcf5c,#ff9d5c);color:#2a1e00;
+  }
+  .sell-dupe-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 10px rgba(255,159,92,.35);}
   .rarity-tag{
     position:absolute;top:6px;right:6px;width:10px;height:10px;border-radius:50%;
   }
@@ -296,7 +304,7 @@
         <button class="btn-gold" id="playMemoryBtn">🧠 Play Memory Match for coins</button>
       </div>
       <div class="odds">
-        <span id="oddsLine">Common 55% · Rare 30% · Epic 12% · Legendary 3%</span> — duplicate pulls auto-convert into bonus coins.
+        <span id="oddsLine">Common 55% · Rare 30% · Epic 12% · Legendary 3%</span> — duplicates join your collection as extra copies you can sell anytime.
         Coins also trickle in over time based on your collection.<br>
         6 themed collections, 30 characters total — complete a set for a bonus.<br>
         Play Memory Match for coins — fewer moves and a faster time earn more.
@@ -312,7 +320,9 @@
         <div class="stat-chip"><b id="statSets">0/0</b>Sets complete</div>
         <div class="stat-chip"><b id="statPulls">0</b>Total pulls</div>
         <div class="stat-chip"><b id="statCoinsEarned">0</b>Lifetime coins</div>
+        <button class="btn-gold sell-all-btn" id="sellAllDupesBtn">🪙 Sell all duplicates</button>
       </div>
+      <div class="dupe-hint">Own more than one of a character? Sell the extras from their card below for quick coins.</div>
       <div id="collectionGrid"></div>
     </div>
   </div>
@@ -730,12 +740,9 @@ function pullOne(pool){
   const wasOwned = !!state.owned[creature.id];
   state.owned[creature.id] = (state.owned[creature.id]||0) + 1;
   state.totalPulls++;
-  let bonusCoins = 0;
-  if(wasOwned){
-    bonusCoins = RARITIES[creature.rarity].coinValue;
-    addCoins(bonusCoins);
-  }
-  return { creature, wasOwned, bonusCoins };
+  // Duplicates are no longer auto-converted to coins — they join the collection as
+  // an extra copy the player can sell manually anytime (see sellOneDuplicate below).
+  return { creature, wasOwned };
 }
 
 /* ---------- SET PICKER + PULL UI ---------- */
@@ -862,13 +869,13 @@ const revealCard = document.getElementById('revealCard');
 
 function rarityColorVar(rarity){ return RARITIES[rarity].color; }
 
-function showSingleReveal({creature, wasOwned, bonusCoins}){
+function showSingleReveal({creature, wasOwned}){
   revealCard.innerHTML = `
     <div class="reveal-rarity" style="background:${rarityColorVar(creature.rarity)};color:#1a1330;">${RARITIES[creature.rarity].label}</div>
     <div class="reveal-emoji" style="color:${rarityColorVar(creature.rarity)}">${creature.emoji}</div>
     <div class="reveal-name">${creature.name}</div>
     <div class="reveal-flavor">${creature.flavor}</div>
-    ${wasOwned ? `<div class="reveal-dupe">Duplicate → converted to +${bonusCoins} 🪙</div>` : `<div class="reveal-dupe" style="color:var(--good);">New to your collection!</div>`}
+    ${wasOwned ? `<div class="reveal-dupe">Duplicate! Sell it from your Collection anytime for +${RARITIES[creature.rarity].coinValue} 🪙</div>` : `<div class="reveal-dupe" style="color:var(--good);">New to your collection!</div>`}
     <button class="btn-accent" id="closeRevealBtn">Nice!</button>
   `;
   revealModal.classList.remove('hidden');
@@ -897,12 +904,14 @@ function showMultiReveal(results){
 function creatureCardHtml(c){
   const count = state.owned[c.id] || 0;
   const locked = count === 0;
+  const sellValue = RARITIES[c.rarity].coinValue;
   return `
     <div class="creature-card ${locked?'locked':''}">
       <div class="rarity-tag" style="background:${rarityColorVar(c.rarity)}"></div>
       <div class="emoji">${locked ? '❔' : c.emoji}</div>
       <div class="nm">${locked ? '???' : c.name}</div>
       <div class="cnt">${locked ? RARITIES[c.rarity].label : 'x' + count}</div>
+      ${count > 1 ? `<button class="sell-dupe-btn" data-sell-id="${c.id}">Sell 1 (+${sellValue} 🪙)</button>` : ''}
     </div>
   `;
 }
@@ -937,7 +946,53 @@ function renderCollection(){
   document.getElementById('statPulls').textContent = state.totalPulls;
   document.getElementById('statCoinsEarned').textContent = Math.floor(state.lifetimeCoins).toLocaleString();
   document.getElementById('statSets').textContent = `${state.completedSets.length}/${SETS.length}`;
+
+  const hasDupes = CREATURES.some(c => (state.owned[c.id]||0) > 1);
+  document.getElementById('sellAllDupesBtn').disabled = !hasDupes;
 }
+
+/* ---------- SELLING DUPLICATES ---------- */
+// Sells exactly one extra copy of a creature for coins. Never sells below the
+// first copy owned — selling only removes surplus duplicates, never your only one.
+function sellOneDuplicate(id){
+  const creature = CREATURES.find(c => c.id === id);
+  const count = state.owned[id] || 0;
+  if(!creature || count <= 1) return;
+  state.owned[id] = count - 1;
+  const value = RARITIES[creature.rarity].coinValue;
+  addCoins(value);
+  persist();
+  renderCollection();
+  toast(`Sold a duplicate ${creature.name} for +${value} 🪙`);
+}
+
+// Sells every surplus duplicate across the whole collection in one go.
+function sellAllDuplicates(){
+  let total = 0;
+  let sold = 0;
+  CREATURES.forEach(c=>{
+    const count = state.owned[c.id] || 0;
+    if(count > 1){
+      const extras = count - 1;
+      state.owned[c.id] = 1;
+      total += extras * RARITIES[c.rarity].coinValue;
+      sold += extras;
+    }
+  });
+  if(sold === 0) return toast("No duplicates to sell right now.");
+  addCoins(total);
+  persist();
+  renderCollection();
+  toast(`Sold ${sold} duplicate${sold===1?'':'s'} for +${total} 🪙`);
+}
+
+document.getElementById('collectionGrid').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.sell-dupe-btn');
+  if(!btn) return;
+  sellOneDuplicate(btn.dataset.sellId);
+});
+
+document.getElementById('sellAllDupesBtn').addEventListener('click', sellAllDuplicates);
 
 /* ---------- NAVIGATION ---------- */
 document.querySelectorAll('nav button').forEach(btn=>{
