@@ -134,6 +134,18 @@
   .stat-chip{background:var(--panel-2);border-radius:10px;padding:8px 14px;font-size:12px;color:var(--text-dim);}
   .stat-chip b{color:var(--text);font-size:15px;display:block;}
   .collection-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;}
+  .set-section{margin-bottom:26px;}
+  .set-section:last-child{margin-bottom:0;}
+  .set-header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+  .set-header-left{display:flex;align-items:center;gap:10px;}
+  .set-icon{font-size:26px;}
+  .set-name{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;}
+  .set-blurb{font-size:11px;color:var(--text-dim);}
+  .set-progress{background:var(--panel-2);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--text-dim);}
+  .set-complete-badge{
+    font-size:9px;font-weight:800;letter-spacing:.5px;background:linear-gradient(135deg,var(--good),var(--rare));
+    color:#0d1a14;padding:2px 8px;border-radius:999px;
+  }
   .creature-card{
     background:var(--panel-2);border-radius:12px;padding:12px 8px;text-align:center;
     border:2px solid var(--line);position:relative;transition:transform .15s;
@@ -220,7 +232,8 @@
       </div>
       <div class="odds">
         Common 55% · Rare 30% · Epic 12% · Legendary 3% — duplicate pulls auto-convert into bonus coins.
-        Coins also trickle in over time based on your collection.
+        Coins also trickle in over time based on your collection.<br>
+        6 themed collections, 30 characters total — complete a set for a bonus.
       </div>
     </div>
   </div>
@@ -230,10 +243,11 @@
     <div class="panel">
       <div class="collection-stats">
         <div class="stat-chip"><b id="statOwned">0/0</b>Characters found</div>
+        <div class="stat-chip"><b id="statSets">0/0</b>Sets complete</div>
         <div class="stat-chip"><b id="statPulls">0</b>Total pulls</div>
         <div class="stat-chip"><b id="statCoinsEarned">0</b>Lifetime coins</div>
       </div>
-      <div class="collection-grid" id="collectionGrid"></div>
+      <div id="collectionGrid"></div>
     </div>
   </div>
 
@@ -324,18 +338,62 @@ const RARITIES = {
   legendary: { label:'Legendary', color:'var(--legendary)', weight:3,  coinValue:60, idlePerMin:20 },
 };
 
-const CREATURES = [
-  { id:'puffshroom', name:'Puffshroom', emoji:'🍄', rarity:'common', flavor:'Bounces when happy. Smells faintly of rain.' },
-  { id:'driftpebble', name:'Driftpebble', emoji:'🪨', rarity:'common', flavor:'A small stone spirit that rolls uphill for fun.' },
-  { id:'twiggle', name:'Twiggle', emoji:'🌿', rarity:'common', flavor:'Grows a new leaf every time it makes a friend.' },
-  { id:'bubblet', name:'Bubblet', emoji:'🫧', rarity:'common', flavor:'Pops if startled, reforms a minute later, unbothered.' },
-  { id:'glimmermoth', name:'Glimmermoth', emoji:'🦋', rarity:'rare', flavor:'Its wings store starlight for cloudy nights.' },
-  { id:'crestfin', name:'Crestfin', emoji:'🐠', rarity:'rare', flavor:'Changes color to match whoever is watching it.' },
-  { id:'emberpup', name:'Emberpup', emoji:'🐕', rarity:'rare', flavor:'Sneezes sparks when excited. Very easily excited.' },
-  { id:'stormtail', name:'Stormtail', emoji:'🦊', rarity:'epic', flavor:'Leaves a trail of static electricity when it runs.' },
-  { id:'frostmane', name:'Frostmane', emoji:'🦁', rarity:'epic', flavor:'Its roar is silent, but frost creeps out for miles.' },
-  { id:'starwyrm', name:'Starwyrm', emoji:'🐉', rarity:'legendary', flavor:'Said to be woven from the same thread as the sky.' },
+// Themed collections — group characters into sets. Collecting every member
+// of a set awards a one-time bonus (see SET_COMPLETION_BONUS / checkSetCompletions).
+const SETS = [
+  { id:'forest', name:'Forest Friends', icon:'🌲', blurb:'Woodland regulars, always underfoot.' },
+  { id:'ocean',  name:'Ocean Explorers', icon:'🌊', blurb:'From the shallows to the deep dark.' },
+  { id:'sky',    name:'Sky Wanderers',   icon:'☁️', blurb:'Things that never quite touch the ground.' },
+  { id:'ember',  name:'Ember & Ash',     icon:'🔥', blurb:'Warm to the touch, best from a distance.' },
+  { id:'stone',  name:'Stonevale',       icon:'⛰️', blurb:'Slow, sturdy, older than they look.' },
+  { id:'frost',  name:'Frostpeak',       icon:'❄️', blurb:'Only comfortable when it\'s cold out.' },
 ];
+
+const CREATURES = [
+  // Forest Friends 🌲
+  { id:'puffshroom', name:'Puffshroom', emoji:'🍄', rarity:'common', set:'forest', flavor:'Bounces when happy. Smells faintly of rain.' },
+  { id:'twiggle', name:'Twiggle', emoji:'🌿', rarity:'common', set:'forest', flavor:'Grows a new leaf every time it makes a friend.' },
+  { id:'mossling', name:'Mossling', emoji:'🐿️', rarity:'common', set:'forest', flavor:'Naps so long that moss grows on its back.' },
+  { id:'thistlehop', name:'Thistlehop', emoji:'🐇', rarity:'rare', set:'forest', flavor:'Leaves a trail of tiny purple flowers.' },
+  { id:'oakenhorn', name:'Oakenhorn', emoji:'🦌', rarity:'epic', set:'forest', flavor:'Its antlers are old enough to have their own names.' },
+
+  // Ocean Explorers 🌊
+  { id:'bubblet', name:'Bubblet', emoji:'🫧', rarity:'common', set:'ocean', flavor:'Pops if startled, reforms a minute later, unbothered.' },
+  { id:'tidepup', name:'Tidepup', emoji:'🦭', rarity:'common', set:'ocean', flavor:'Barks in rhythm with the incoming waves.' },
+  { id:'crestfin', name:'Crestfin', emoji:'🐠', rarity:'rare', set:'ocean', flavor:'Changes color to match whoever is watching it.' },
+  { id:'coralwing', name:'Coralwing', emoji:'🐡', rarity:'rare', set:'ocean', flavor:'Puffs up twice its size when it gets shy.' },
+  { id:'abysking', name:'Abysking', emoji:'🐙', rarity:'legendary', set:'ocean', flavor:'Rules a kingdom no submarine has ever found.' },
+
+  // Sky Wanderers ☁️
+  { id:'featherkit', name:'Featherkit', emoji:'🐦', rarity:'common', set:'sky', flavor:'Practices landing. Still working on it.' },
+  { id:'cloudpup', name:'Cloudpup', emoji:'☁️', rarity:'common', set:'sky', flavor:'Rains a little whenever it gets too excited.' },
+  { id:'glimmermoth', name:'Glimmermoth', emoji:'🦋', rarity:'rare', set:'sky', flavor:'Its wings store starlight for cloudy nights.' },
+  { id:'stormtail', name:'Stormtail', emoji:'🦊', rarity:'epic', set:'sky', flavor:'Leaves a trail of static electricity when it runs.' },
+  { id:'starwyrm', name:'Starwyrm', emoji:'🐉', rarity:'legendary', set:'sky', flavor:'Said to be woven from the same thread as the sky.' },
+
+  // Ember & Ash 🔥
+  { id:'cinderling', name:'Cinderling', emoji:'🕯️', rarity:'common', set:'ember', flavor:'Its flame burns low and steady, like a nightlight.' },
+  { id:'ashpaw', name:'Ashpaw', emoji:'🐾', rarity:'common', set:'ember', flavor:'Leaves warm little footprints that fade in seconds.' },
+  { id:'emberpup', name:'Emberpup', emoji:'🐕', rarity:'rare', set:'ember', flavor:'Sneezes sparks when excited. Very easily excited.' },
+  { id:'magmawing', name:'Magmawing', emoji:'🦇', rarity:'rare', set:'ember', flavor:'Only flies at night, when it\'s easier to stay cool.' },
+  { id:'infernoxis', name:'Infernoxis', emoji:'🦂', rarity:'epic', set:'ember', flavor:'Its sting doesn\'t hurt — it just leaves a nice tan.' },
+
+  // Stonevale ⛰️
+  { id:'driftpebble', name:'Driftpebble', emoji:'🪨', rarity:'common', set:'stone', flavor:'A small stone spirit that rolls uphill for fun.' },
+  { id:'pebblet', name:'Pebblet', emoji:'🐢', rarity:'common', set:'stone', flavor:'Mistaken for a rock so often it stopped correcting people.' },
+  { id:'craghorn', name:'Craghorn', emoji:'🐐', rarity:'rare', set:'stone', flavor:'Can nap standing up on a ledge the width of a coin.' },
+  { id:'boulderback', name:'Boulderback', emoji:'🦏', rarity:'rare', set:'stone', flavor:'Small pebbles collect on its back like a rock garden.' },
+  { id:'graniteclaw', name:'Graniteclaw', emoji:'🦖', rarity:'epic', set:'stone', flavor:'Older than the mountain it lives on, and just as patient.' },
+
+  // Frostpeak ❄️
+  { id:'snowkit', name:'Snowkit', emoji:'🐧', rarity:'common', set:'frost', flavor:'Slides everywhere it can, walks only when it must.' },
+  { id:'chillhare', name:'Chillhare', emoji:'🐰', rarity:'common', set:'frost', flavor:'Its fur changes with the weather, whether it needs to or not.' },
+  { id:'icewisp', name:'Icewisp', emoji:'❄️', rarity:'common', set:'frost', flavor:'Melts a little in sunlight, then simply reforms at dusk.' },
+  { id:'frostfang', name:'Frostfang', emoji:'🐺', rarity:'rare', set:'frost', flavor:'Howls carry further when the air is this cold.' },
+  { id:'frostmane', name:'Frostmane', emoji:'🦁', rarity:'epic', set:'frost', flavor:'Its roar is silent, but frost creeps out for miles.' },
+];
+
+const SET_COMPLETION_BONUS = 250;
 
 const SAVE_VERSION = 1;
 const SAVE_KEY = 'collectorMania_save_v1';
@@ -365,6 +423,7 @@ function defaultSave(){
     lifetimeCoins: 60,
     playerName: '',
     lastTick: Date.now(),
+    completedSets: [],  // set ids already paid out
   };
 }
 
@@ -374,6 +433,7 @@ function migrateSave(data){
   const base = defaultSave();
   const merged = Object.assign({}, base, data || {});
   merged.owned = Object.assign({}, data && data.owned ? data.owned : {});
+  merged.completedSets = Array.isArray(data && data.completedSets) ? data.completedSets.slice() : [];
   merged.version = SAVE_VERSION;
   return merged;
 }
@@ -466,14 +526,42 @@ function pullOne(){
   return { creature, wasOwned, bonusCoins };
 }
 
+// Checks every themed set the player hasn't already been paid out for; pays
+// out SET_COMPLETION_BONUS the moment every member of a set is owned.
+// Safe to call anytime (init, after a pull) — already-paid sets are skipped.
+function checkSetCompletions(){
+  const newlyCompleted = [];
+  SETS.forEach(set=>{
+    if(state.completedSets.includes(set.id)) return;
+    const members = CREATURES.filter(c=>c.set===set.id);
+    const allOwned = members.length > 0 && members.every(c => (state.owned[c.id]||0) > 0);
+    if(allOwned){
+      state.completedSets.push(set.id);
+      addCoins(SET_COMPLETION_BONUS);
+      newlyCompleted.push(set);
+    }
+  });
+  return newlyCompleted;
+}
+
+function announceSetCompletions(newlyCompleted){
+  if(newlyCompleted.length === 0) return;
+  const msg = newlyCompleted
+    .map(set => `${set.icon} ${set.name} complete! +${SET_COMPLETION_BONUS} coins`)
+    .join(' · ');
+  toast(msg);
+}
+
 document.getElementById('pullOneBtn').addEventListener('click', ()=>{
   if(state.coins < 50) return toast("Not enough coins yet — keep collecting!");
   state.coins -= 50;
   const result = pullOne();
+  const newlyCompleted = checkSetCompletions();
   persist();
   renderCoins();
   showSingleReveal(result);
   renderCollection();
+  announceSetCompletions(newlyCompleted);
 });
 
 document.getElementById('pullTenBtn').addEventListener('click', ()=>{
@@ -481,10 +569,12 @@ document.getElementById('pullTenBtn').addEventListener('click', ()=>{
   state.coins -= 450;
   const results = [];
   for(let i=0;i<10;i++) results.push(pullOne());
+  const newlyCompleted = checkSetCompletions();
   persist();
   renderCoins();
   showMultiReveal(results);
   renderCollection();
+  announceSetCompletions(newlyCompleted);
 });
 
 /* ---------- REVEAL UI ---------- */
@@ -525,17 +615,40 @@ function showMultiReveal(results){
 }
 
 /* ---------- COLLECTION VIEW ---------- */
+function creatureCardHtml(c){
+  const count = state.owned[c.id] || 0;
+  const locked = count === 0;
+  return `
+    <div class="creature-card ${locked?'locked':''}">
+      <div class="rarity-tag" style="background:${rarityColorVar(c.rarity)}"></div>
+      <div class="emoji">${locked ? '❔' : c.emoji}</div>
+      <div class="nm">${locked ? '???' : c.name}</div>
+      <div class="cnt">${locked ? RARITIES[c.rarity].label : 'x' + count}</div>
+    </div>
+  `;
+}
+
 function renderCollection(){
   const grid = document.getElementById('collectionGrid');
-  grid.innerHTML = CREATURES.map(c=>{
-    const count = state.owned[c.id] || 0;
-    const locked = count === 0;
+  grid.innerHTML = SETS.map(set=>{
+    const members = CREATURES.filter(c=>c.set===set.id);
+    const ownedInSet = members.filter(c => (state.owned[c.id]||0) > 0).length;
+    const complete = state.completedSets.includes(set.id);
     return `
-      <div class="creature-card ${locked?'locked':''}">
-        <div class="rarity-tag" style="background:${rarityColorVar(c.rarity)}"></div>
-        <div class="emoji">${locked ? '❔' : c.emoji}</div>
-        <div class="nm">${locked ? '???' : c.name}</div>
-        <div class="cnt">${locked ? RARITIES[c.rarity].label : 'x' + count}</div>
+      <div class="set-section">
+        <div class="set-header">
+          <div class="set-header-left">
+            <span class="set-icon">${set.icon}</span>
+            <div>
+              <div class="set-name">${set.name} ${complete ? '<span class="set-complete-badge">COMPLETE</span>' : ''}</div>
+              <div class="set-blurb">${set.blurb}</div>
+            </div>
+          </div>
+          <div class="set-progress">${ownedInSet}/${members.length}</div>
+        </div>
+        <div class="collection-grid">
+          ${members.map(creatureCardHtml).join('')}
+        </div>
       </div>
     `;
   }).join('');
@@ -544,6 +657,7 @@ function renderCollection(){
   document.getElementById('statOwned').textContent = `${ownedCount}/${CREATURES.length}`;
   document.getElementById('statPulls').textContent = state.totalPulls;
   document.getElementById('statCoinsEarned').textContent = Math.floor(state.lifetimeCoins).toLocaleString();
+  document.getElementById('statSets').textContent = `${state.completedSets.length}/${SETS.length}`;
 }
 
 /* ---------- NAVIGATION ---------- */
@@ -819,10 +933,16 @@ document.getElementById('clearConfigBtn').addEventListener('click', ()=>{
 
 /* ---------- INIT ---------- */
 function init(){
+  // Catch up any sets that were already fully collected before this update
+  // (e.g. a returning player who happened to own every member of a set).
+  const newlyCompleted = checkSetCompletions();
+  if(newlyCompleted.length) persist();
+
   renderCoins();
   renderCollection();
   renderSuggestions(getLocalSuggestions());
   setConnBadge(false);
+  announceSetCompletions(newlyCompleted);
 
   const savedConfigRaw = localStorage.getItem(CONFIG_KEY);
   let configToUse = DEFAULT_FIREBASE_CONFIG;
