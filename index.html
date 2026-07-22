@@ -23,12 +23,23 @@
     --legendary:#ffb14e;
     --radius:14px;
   }
+  /* Purchasable background themes — swap the ambient gradient + accent glow.
+     Applied via body[data-bg="id"], default theme needs no override. */
+  body[data-bg="sunset"]{ --bg-2:#1a0e0d; --accent:#ff9d5c; --accent-2:#ff5c7a; }
+  body[data-bg="sunset"]{ background:radial-gradient(circle at 20% 10%, #4d2a1e 0%, var(--bg-2) 55%); }
+  body[data-bg="forest"]{ --bg-2:#0a1a12; --accent:#5cff9d; --accent-2:#8fff5c; }
+  body[data-bg="forest"]{ background:radial-gradient(circle at 20% 10%, #1e4d33 0%, var(--bg-2) 55%); }
+  body[data-bg="ocean"]{ --bg-2:#0a1420; --accent:#5cb8ff; --accent-2:#5cffe0; }
+  body[data-bg="ocean"]{ background:radial-gradient(circle at 20% 10%, #1e3a4d 0%, var(--bg-2) 55%); }
+  body[data-bg="aurora"]{ --bg-2:#0f0a1f; --accent:#5cffb0; --accent-2:#c15cff; }
+  body[data-bg="aurora"]{ background:radial-gradient(circle at 20% 10%, #2a1e4d 0%, var(--bg-2) 55%, #0f0a1f 100%); }
   *{box-sizing:border-box;}
   html,body{height:100%;}
   body{
     margin:0;
     font-family:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
     background:radial-gradient(circle at 20% 10%, #2a1e4d 0%, var(--bg-2) 55%);
+    transition:background .4s ease;
     color:var(--text);
     min-height:100vh;
     display:flex;
@@ -223,9 +234,47 @@
     background:linear-gradient(135deg,#ffcf5c,#ff9d5c);color:#2a1e00;
   }
   .sell-dupe-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 10px rgba(255,159,92,.35);}
+  .sacrifice-dupe-btn{
+    margin-top:4px;padding:4px 8px;font-size:10px;font-weight:700;border-radius:8px;
+    background:linear-gradient(135deg,#8a1c3a,#c1305c);color:#ffe3ec;
+  }
+  .sacrifice-dupe-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 10px rgba(193,48,92,.4);}
   .rarity-tag{
     position:absolute;top:6px;right:6px;width:10px;height:10px;border-radius:50%;
   }
+
+  /* BLOOD COINS + MINIGAME UPGRADES */
+  .blood-coin-strip{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  .blood-chip{
+    background:linear-gradient(135deg,#3a1020,#1a0a12);border:1px solid #5c1a30;border-radius:10px;
+    padding:6px 12px;font-size:12px;color:#ffb3c8;display:flex;align-items:center;gap:6px;
+  }
+  .blood-chip b{color:#ffe3ec;}
+  .upgrade-panel{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:12px;
+  }
+  .upgrade-panel h3{font-size:14px;margin-bottom:4px;}
+  .upgrade-panel .upg-desc{font-size:12px;color:var(--text-dim);margin-bottom:10px;}
+  .upgrade-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .upgrade-level-badge{
+    font-size:11px;font-weight:800;background:linear-gradient(135deg,#8a1c3a,#c1305c);color:#ffe3ec;
+    padding:3px 10px;border-radius:999px;
+  }
+  .upgrade-buy-btn{padding:8px 14px;font-size:12px;background:linear-gradient(135deg,#8a1c3a,#c1305c);color:#ffe3ec;}
+  .upgrade-buy-btn:disabled{opacity:.35;}
+  .upgrade-maxed{font-size:12px;color:var(--good);font-weight:700;}
+
+  /* BACKGROUND SHOP */
+  .bg-shop{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:10px;}
+  .bg-swatch{
+    border-radius:12px;padding:12px;text-align:center;border:2px solid var(--line);cursor:pointer;
+    background:var(--panel-2);transition:transform .15s;
+  }
+  .bg-swatch:hover{transform:translateY(-2px);}
+  .bg-swatch.active{border-color:var(--accent);}
+  .bg-swatch .bg-preview{height:36px;border-radius:8px;margin-bottom:8px;}
+  .bg-swatch .bg-name{font-size:12px;font-weight:700;}
+  .bg-swatch .bg-price{font-size:11px;color:var(--text-dim);margin-top:2px;}
 
   /* SUGGESTIONS */
   .suggest-form{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}
@@ -309,6 +358,16 @@
         6 themed collections, 30 characters total — complete a set for a bonus.<br>
         Play Memory Match for coins — fewer moves and a faster time earn more.
       </div>
+      <div class="upgrade-panel">
+        <h3>🩸 Memory Match Upgrade</h3>
+        <div class="upg-desc">Sacrifice duplicate characters in your Collection for blood coins, then spend them here to permanently boost Memory Match's coin reward.</div>
+        <div class="blood-coin-strip" id="bloodCoinStripPull"></div>
+        <div class="upgrade-row">
+          <span class="upgrade-level-badge" id="upgradeLevelBadge">Level 0/5</span>
+          <span id="upgradeEffectLabel">No bonus yet</span>
+          <button class="upgrade-buy-btn" id="upgradeBuyBtn">Upgrade</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -322,7 +381,8 @@
         <div class="stat-chip"><b id="statCoinsEarned">0</b>Lifetime coins</div>
         <button class="btn-gold sell-all-btn" id="sellAllDupesBtn">🪙 Sell all duplicates</button>
       </div>
-      <div class="dupe-hint">Own more than one of a character? Sell the extras from their card below for quick coins.</div>
+      <div class="dupe-hint">Own more than one of a character? Sell the extras for quick coins, or sacrifice them for blood coins to spend on minigame upgrades (⚙️ see the Pull tab).</div>
+      <div class="blood-coin-strip" id="bloodCoinStripCollection"></div>
       <div id="collectionGrid"></div>
     </div>
   </div>
@@ -347,6 +407,14 @@
   <div class="view" id="view-settings">
     <div class="panel">
       <div class="settings-grid">
+        <div class="settings-row">
+          <div>
+            <b>Backgrounds</b>
+            <div class="desc">Buy a new look for the app with coins — purely cosmetic, doesn't affect gameplay. Pick any theme you've unlocked.</div>
+          </div>
+        </div>
+        <div class="bg-shop" id="bgShop"></div>
+
         <div class="settings-row">
           <div>
             <b>Live suggestion sync</b>
@@ -428,11 +496,37 @@
 
 /* ---------- DATA ---------- */
 const RARITIES = {
-  common:    { label:'Common',    color:'var(--common)',    weight:55, coinValue:2,  idlePerMin:1 },
-  rare:      { label:'Rare',      color:'var(--rare)',      weight:30, coinValue:6,  idlePerMin:3 },
-  epic:      { label:'Epic',      color:'var(--epic)',      weight:12, coinValue:18, idlePerMin:8 },
-  legendary: { label:'Legendary', color:'var(--legendary)', weight:3,  coinValue:60, idlePerMin:20 },
+  common:    { label:'Common',    color:'var(--common)',    weight:55, coinValue:2,  idlePerMin:1,  bloodValue:1 },
+  rare:      { label:'Rare',      color:'var(--rare)',      weight:30, coinValue:6,  idlePerMin:3,  bloodValue:2 },
+  epic:      { label:'Epic',      color:'var(--epic)',      weight:12, coinValue:18, idlePerMin:8,  bloodValue:3 },
+  legendary: { label:'Legendary', color:'var(--legendary)', weight:3,  coinValue:60, idlePerMin:20, bloodValue:4 },
 };
+const BLOOD_ICON = { common:'🩸', rare:'🩸', epic:'🩸', legendary:'🩸' };
+
+// Sacrificing a duplicate burns it for "blood coins" of that rarity's type
+// instead of regular coins — a slower-burning currency spent on minigame
+// upgrades (suggested by Th3C0olK11d: "Sacrificing a card will give you
+// blood coin TYPES based off of rarity... common gives 1, rare gives 2").
+// Spend blood coins of the matching type to raise Memory Match's reward
+// output — five tiers, escalating through the rarities as you climb.
+const MEMORY_UPGRADE_LEVELS = [
+  { level:1, cost:{ common:3 },    multiplier:1.15 },
+  { level:2, cost:{ rare:3 },      multiplier:1.30 },
+  { level:3, cost:{ epic:3 },      multiplier:1.50 },
+  { level:4, cost:{ legendary:2 }, multiplier:1.75 },
+  { level:5, cost:{ legendary:5 }, multiplier:2.00 },
+];
+
+// Purchasable background themes (bought with regular coins, per Th3C0olK11d's
+// suggestion that backgrounds "could instead be normal coins"). Each swaps a
+// handful of CSS custom properties via body[data-bg="id"] rules.
+const BACKGROUNDS = [
+  { id:'default', name:'Midnight Violet', cost:0 },
+  { id:'sunset',   name:'Sunset Ember',   cost:250 },
+  { id:'forest',   name:'Forest Canopy',  cost:250 },
+  { id:'ocean',    name:'Ocean Depths',   cost:250 },
+  { id:'aurora',   name:'Aurora',         cost:450 },
+];
 
 // Themed collections — group characters into sets. Collecting every member
 // of a set awards a one-time bonus (see SET_COMPLETION_BONUS / checkSetCompletions).
@@ -520,6 +614,10 @@ function defaultSave(){
     playerName: '',
     lastTick: Date.now(),
     completedSets: [],  // set ids already paid out
+    bloodCoins: { common:0, rare:0, epic:0, legendary:0 }, // from sacrificing duplicates
+    memoryUpgradeLevel: 0,       // Memory Match reward upgrade tier, bought with blood coins
+    background: 'default',       // currently applied background theme id
+    unlockedBackgrounds: ['default'], // background ids purchased with coins
   };
 }
 
@@ -530,6 +628,11 @@ function migrateSave(data){
   const merged = Object.assign({}, base, data || {});
   merged.owned = Object.assign({}, data && data.owned ? data.owned : {});
   merged.completedSets = Array.isArray(data && data.completedSets) ? data.completedSets.slice() : [];
+  merged.bloodCoins = Object.assign({}, base.bloodCoins, data && data.bloodCoins ? data.bloodCoins : {});
+  merged.memoryUpgradeLevel = (data && Number.isInteger(data.memoryUpgradeLevel)) ? data.memoryUpgradeLevel : 0;
+  merged.background = (data && typeof data.background === 'string') ? data.background : 'default';
+  merged.unlockedBackgrounds = Array.isArray(data && data.unlockedBackgrounds) ? data.unlockedBackgrounds.slice() : ['default'];
+  if(!merged.unlockedBackgrounds.includes('default')) merged.unlockedBackgrounds.push('default');
   merged.version = SAVE_VERSION;
   return merged;
 }
@@ -688,7 +791,7 @@ function finishMemoryGame(){
   const elapsedSec = Math.floor((Date.now() - memory.startedAt) / 1000);
   const moveReward = Math.max(MEMORY_MIN_REWARD, MEMORY_BASE_REWARD - (memory.moves - MEMORY_PAIRS) * MEMORY_MOVE_PENALTY);
   const timeBonus = elapsedSec <= 15 ? 30 : elapsedSec <= 30 ? 15 : 0;
-  const reward = moveReward + timeBonus;
+  const reward = Math.round((moveReward + timeBonus) * memoryRewardMultiplier());
   addCoins(reward);
   persist();
   updateMemoryStats();
@@ -905,6 +1008,7 @@ function creatureCardHtml(c){
   const count = state.owned[c.id] || 0;
   const locked = count === 0;
   const sellValue = RARITIES[c.rarity].coinValue;
+  const bloodValue = RARITIES[c.rarity].bloodValue;
   return `
     <div class="creature-card ${locked?'locked':''}">
       <div class="rarity-tag" style="background:${rarityColorVar(c.rarity)}"></div>
@@ -912,6 +1016,7 @@ function creatureCardHtml(c){
       <div class="nm">${locked ? '???' : c.name}</div>
       <div class="cnt">${locked ? RARITIES[c.rarity].label : 'x' + count}</div>
       ${count > 1 ? `<button class="sell-dupe-btn" data-sell-id="${c.id}">Sell 1 (+${sellValue} 🪙)</button>` : ''}
+      ${count > 1 ? `<button class="sacrifice-dupe-btn" data-sacrifice-id="${c.id}">Sacrifice 1 (+${bloodValue} 🩸 ${RARITIES[c.rarity].label})</button>` : ''}
     </div>
   `;
 }
@@ -949,6 +1054,7 @@ function renderCollection(){
 
   const hasDupes = CREATURES.some(c => (state.owned[c.id]||0) > 1);
   document.getElementById('sellAllDupesBtn').disabled = !hasDupes;
+  renderBloodCoins();
 }
 
 /* ---------- SELLING DUPLICATES ---------- */
@@ -986,13 +1092,145 @@ function sellAllDuplicates(){
   toast(`Sold ${sold} duplicate${sold===1?'':'s'} for +${total} 🪙`);
 }
 
+/* ---------- SACRIFICING DUPLICATES FOR BLOOD COINS ---------- */
+// Sacrifices exactly one extra copy of a creature for blood coins of that
+// rarity's type, instead of regular coins. Same floor-of-1 rule as selling —
+// your only copy of a creature can never be sacrificed away.
+function sacrificeOneDuplicate(id){
+  const creature = CREATURES.find(c => c.id === id);
+  const count = state.owned[id] || 0;
+  if(!creature || count <= 1) return;
+  state.owned[id] = count - 1;
+  const value = RARITIES[creature.rarity].bloodValue;
+  state.bloodCoins[creature.rarity] = (state.bloodCoins[creature.rarity] || 0) + value;
+  persist();
+  renderCollection();
+  renderUpgradePanel();
+  toast(`Sacrificed a duplicate ${creature.name} for +${value} 🩸 ${RARITIES[creature.rarity].label} blood coin${value===1?'':'s'}`);
+}
+
+function renderBloodCoins(){
+  const order = ['common','rare','epic','legendary'];
+  const html = order.map(r => `<div class="blood-chip">🩸 ${RARITIES[r].label} <b>${state.bloodCoins[r]||0}</b></div>`).join('');
+  ['bloodCoinStripPull','bloodCoinStripCollection'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.innerHTML = html;
+  });
+}
+
 document.getElementById('collectionGrid').addEventListener('click', (e)=>{
-  const btn = e.target.closest('.sell-dupe-btn');
-  if(!btn) return;
-  sellOneDuplicate(btn.dataset.sellId);
+  const sellBtn = e.target.closest('.sell-dupe-btn');
+  if(sellBtn){ sellOneDuplicate(sellBtn.dataset.sellId); return; }
+  const sacBtn = e.target.closest('.sacrifice-dupe-btn');
+  if(sacBtn){ sacrificeOneDuplicate(sacBtn.dataset.sacrificeId); return; }
 });
 
 document.getElementById('sellAllDupesBtn').addEventListener('click', sellAllDuplicates);
+
+/* ---------- MEMORY MATCH UPGRADE (spent with blood coins) ---------- */
+function memoryRewardMultiplier(){
+  const lvl = state.memoryUpgradeLevel || 0;
+  if(lvl <= 0) return 1;
+  const tier = MEMORY_UPGRADE_LEVELS[lvl - 1];
+  return tier ? tier.multiplier : 1;
+}
+
+function canAffordUpgradeCost(cost){
+  return Object.entries(cost).every(([rarity, amt]) => (state.bloodCoins[rarity]||0) >= amt);
+}
+
+function renderUpgradePanel(){
+  const badge = document.getElementById('upgradeLevelBadge');
+  const label = document.getElementById('upgradeEffectLabel');
+  const btn = document.getElementById('upgradeBuyBtn');
+  if(!badge || !label || !btn) return;
+
+  const lvl = state.memoryUpgradeLevel || 0;
+  badge.textContent = `Level ${lvl}/${MEMORY_UPGRADE_LEVELS.length}`;
+  label.textContent = lvl > 0
+    ? `+${Math.round((memoryRewardMultiplier()-1)*100)}% Memory Match rewards`
+    : 'No bonus yet';
+
+  if(lvl >= MEMORY_UPGRADE_LEVELS.length){
+    btn.replaceWith(Object.assign(document.createElement('span'), { className:'upgrade-maxed', id:'upgradeBuyBtn', textContent:'Maxed out!' }));
+    return;
+  }
+  const next = MEMORY_UPGRADE_LEVELS[lvl];
+  const costStr = Object.entries(next.cost).map(([r,a]) => `${a} 🩸${RARITIES[r].label}`).join(' + ');
+  btn.textContent = `Upgrade to Lv${next.level} (${costStr})`;
+  btn.disabled = !canAffordUpgradeCost(next.cost);
+}
+
+function buyMemoryUpgrade(){
+  const lvl = state.memoryUpgradeLevel || 0;
+  if(lvl >= MEMORY_UPGRADE_LEVELS.length) return;
+  const next = MEMORY_UPGRADE_LEVELS[lvl];
+  if(!canAffordUpgradeCost(next.cost)) return toast("Not enough blood coins for this upgrade yet.");
+  Object.entries(next.cost).forEach(([r,a]) => { state.bloodCoins[r] -= a; });
+  state.memoryUpgradeLevel = next.level;
+  persist();
+  renderBloodCoins();
+  renderUpgradePanel();
+  toast(`Memory Match upgraded to Level ${next.level}! Rewards now x${next.multiplier}`);
+}
+
+document.getElementById('upgradeBuyBtn').addEventListener('click', buyMemoryUpgrade);
+
+/* ---------- BACKGROUND SHOP ---------- */
+function applyBackground(id){
+  document.body.setAttribute('data-bg', id === 'default' ? '' : id);
+}
+
+function renderBgShop(){
+  const shop = document.getElementById('bgShop');
+  if(!shop) return;
+  shop.innerHTML = BACKGROUNDS.map(bg=>{
+    const unlocked = state.unlockedBackgrounds.includes(bg.id);
+    const active = state.background === bg.id;
+    const previewGradients = {
+      default: 'linear-gradient(135deg,#2a1e4d,#0d0a1a)',
+      sunset:  'linear-gradient(135deg,#4d2a1e,#1a0e0d)',
+      forest:  'linear-gradient(135deg,#1e4d33,#0a1a12)',
+      ocean:   'linear-gradient(135deg,#1e3a4d,#0a1420)',
+      aurora:  'linear-gradient(135deg,#2a1e4d,#5cffb0)',
+    };
+    return `
+      <div class="bg-swatch ${active?'active':''}" data-bg-id="${bg.id}">
+        <div class="bg-preview" style="background:${previewGradients[bg.id]||previewGradients.default}"></div>
+        <div class="bg-name">${bg.name}</div>
+        <div class="bg-price">${active ? 'Applied' : unlocked ? 'Owned — tap to apply' : bg.cost + ' 🪙'}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function selectOrBuyBackground(id){
+  const bg = BACKGROUNDS.find(b => b.id === id);
+  if(!bg) return;
+  const unlocked = state.unlockedBackgrounds.includes(id);
+  if(unlocked){
+    state.background = id;
+    applyBackground(id);
+    persist();
+    renderBgShop();
+    return;
+  }
+  if(state.coins < bg.cost) return toast(`Not enough coins — ${bg.name} costs ${bg.cost} 🪙.`);
+  state.coins -= bg.cost;
+  state.unlockedBackgrounds.push(id);
+  state.background = id;
+  applyBackground(id);
+  persist();
+  renderCoins();
+  renderBgShop();
+  toast(`Unlocked ${bg.name}!`);
+}
+
+document.getElementById('bgShop').addEventListener('click', (e)=>{
+  const swatch = e.target.closest('.bg-swatch');
+  if(!swatch) return;
+  selectOrBuyBackground(swatch.dataset.bgId);
+});
 
 /* ---------- NAVIGATION ---------- */
 document.querySelectorAll('nav button').forEach(btn=>{
@@ -1276,6 +1514,9 @@ function init(){
   renderCollection();
   renderSetPicker();
   updatePullUI();
+  renderUpgradePanel();
+  applyBackground(state.background);
+  renderBgShop();
   renderSuggestions(getLocalSuggestions());
   setConnBadge(false);
   announceSetCompletions(newlyCompleted);
