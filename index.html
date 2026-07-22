@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Collector Mania</title>
+<style>
+  :root{
+    --bg-1:#1a1330;
+    --bg-2:#0d0a1a;
+    --panel:#241a3d;
+    --panel-2:#2e2153;
+    --line:#3d2c66;
+    --text:#f1ecff;
+    --text-dim:#b5a8db;
+    --accent:#8f6bff;
+    --accent-2:#ff6bd6;
+    --gold:#ffcf5c;
+    --good:#5cffb0;
+    --common:#8ea0b8;
+    --rare:#5cb8ff;
+    --epic:#c15cff;
+    --legendary:#ffb14e;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(circle at 20% 10%, #2a1e4d 0%, var(--bg-2) 55%);
+    color:var(--text);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:20px 14px 60px;
+  }
+  h1,h2,h3{margin:0 0 4px;}
+  button{
+    font-family:inherit;
+    cursor:pointer;
+    border:none;
+    border-radius:10px;
+    color:var(--text);
+    background:var(--panel-2);
+    padding:10px 16px;
+    font-size:14px;
+    font-weight:600;
+    transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+  }
+  button:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 18px rgba(143,107,255,.35);}
+  button:active:not(:disabled){transform:translateY(0);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-accent{background:linear-gradient(135deg,var(--accent),var(--accent-2));}
+  .btn-gold{background:linear-gradient(135deg,#ffcf5c,#ff9d5c);color:#2a1e00;}
+  .btn-ghost{background:transparent;border:1px solid var(--line);}
+  .wrap{width:100%;max-width:920px;}
+
+  /* HEADER */
+  header{
+    display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 18px;margin-bottom:16px;
+  }
+  header .title{display:flex;align-items:center;gap:10px;}
+  header .title .logo{font-size:30px;}
+  header .title h1{font-size:20px;background:linear-gradient(90deg,var(--accent-2),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  header .title .sub{font-size:11px;color:var(--text-dim);}
+  .coin-pill{
+    display:flex;align-items:center;gap:8px;background:var(--panel-2);
+    border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-weight:700;
+  }
+  .coin-pill .rate{color:var(--good);font-weight:500;font-size:11px;}
+
+  /* NAV */
+  nav{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  nav button{background:var(--panel);border:1px solid var(--line);flex:1;min-width:110px;}
+  nav button.active{background:linear-gradient(135deg,var(--accent),var(--accent-2));}
+
+  .panel{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:20px;margin-bottom:16px;
+  }
+  .view{display:none;}
+  .view.active{display:block;}
+
+  /* HOME / PULL VIEW */
+  .pull-stage{
+    display:flex;flex-direction:column;align-items:center;gap:16px;padding:20px 10px;
+  }
+  .pull-orb{
+    width:150px;height:150px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #4a3580, #17102b 70%);
+    border:2px solid var(--accent);
+    display:flex;align-items:center;justify-content:center;font-size:60px;
+    box-shadow:0 0 40px rgba(143,107,255,.45), inset 0 0 30px rgba(143,107,255,.3);
+    animation:float 3.2s ease-in-out infinite;
+  }
+  @keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-10px);}}
+  .pull-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+  .odds{font-size:12px;color:var(--text-dim);text-align:center;max-width:420px;line-height:1.6;}
+  .clicker-row{display:flex;gap:10px;justify-content:center;margin-top:6px;flex-wrap:wrap;}
+
+  /* REVEAL MODAL */
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(6,4,16,.75);backdrop-filter:blur(3px);
+    display:flex;align-items:center;justify-content:center;z-index:50;padding:16px;
+  }
+  .hidden{display:none !important;}
+  .reveal-card{
+    background:var(--panel);border-radius:20px;padding:26px;text-align:center;
+    width:100%;max-width:360px;border:2px solid var(--accent);
+    animation:pop .35s cubic-bezier(.2,1.4,.4,1);
+  }
+  @keyframes pop{from{transform:scale(.6);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .reveal-emoji{font-size:80px;margin:6px 0;filter:drop-shadow(0 0 18px currentColor);}
+  .reveal-rarity{
+    display:inline-block;padding:4px 14px;border-radius:999px;font-size:12px;font-weight:700;
+    letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;
+  }
+  .reveal-name{font-size:22px;margin-bottom:4px;}
+  .reveal-flavor{font-size:13px;color:var(--text-dim);margin-bottom:16px;min-height:34px;}
+  .reveal-dupe{font-size:12px;color:var(--gold);margin-bottom:12px;}
+  .multi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0;}
+  .multi-cell{
+    background:var(--panel-2);border-radius:10px;padding:8px 4px;text-align:center;font-size:26px;
+    border:2px solid var(--line);
+  }
+  .multi-cell .nm{font-size:9px;color:var(--text-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  /* COLLECTION */
+  .collection-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+  .stat-chip{background:var(--panel-2);border-radius:10px;padding:8px 14px;font-size:12px;color:var(--text-dim);}
+  .stat-chip b{color:var(--text);font-size:15px;display:block;}
+  .collection-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;}
+  .creature-card{
+    background:var(--panel-2);border-radius:12px;padding:12px 8px;text-align:center;
+    border:2px solid var(--line);position:relative;transition:transform .15s;
+  }
+  .creature-card:hover{transform:translateY(-3px);}
+  .creature-card.locked{opacity:.35;filter:grayscale(1);}
+  .creature-card .emoji{font-size:36px;}
+  .creature-card .nm{font-size:12px;font-weight:700;margin-top:6px;}
+  .creature-card .cnt{font-size:10px;color:var(--text-dim);margin-top:2px;}
+  .rarity-tag{
+    position:absolute;top:6px;right:6px;width:10px;height:10px;border-radius:50%;
+  }
+
+  /* SUGGESTIONS */
+  .suggest-form{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}
+  .suggest-form input, .suggest-form textarea{
+    background:var(--bg-2);border:1px solid var(--line);border-radius:10px;color:var(--text);
+    padding:10px 12px;font-family:inherit;font-size:14px;resize:vertical;
+  }
+  .suggest-list{display:flex;flex-direction:column;gap:10px;}
+  .suggestion-item{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;
+    display:flex;justify-content:space-between;gap:12px;align-items:flex-start;
+  }
+  .suggestion-item .meta{font-size:11px;color:var(--text-dim);margin-top:4px;}
+  .vote-btn{
+    background:var(--panel);border:1px solid var(--line);min-width:56px;text-align:center;
+    display:flex;flex-direction:column;align-items:center;padding:6px 10px;font-size:13px;
+  }
+  .vote-btn.voted{background:linear-gradient(135deg,var(--accent),var(--accent-2));}
+  .conn-badge{font-size:11px;padding:4px 10px;border-radius:999px;display:inline-flex;align-items:center;gap:6px;}
+  .conn-badge.live{background:rgba(92,255,176,.15);color:var(--good);}
+  .conn-badge.off{background:rgba(255,107,107,.15);color:#ff8a8a;}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor;}
+  .dot.live{animation:pulse 1.4s infinite;}
+  @keyframes pulse{0%{opacity:1;}50%{opacity:.3;}100%{opacity:1;}}
+
+  /* SETTINGS */
+  .settings-grid{display:flex;flex-direction:column;gap:14px;}
+  .settings-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel-2);border-radius:12px;padding:12px 16px;}
+  .settings-row .desc{font-size:12px;color:var(--text-dim);max-width:420px;}
+  textarea#configInput{width:100%;min-height:90px;background:var(--bg-2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;font-family:monospace;font-size:12px;}
+
+  footer{color:var(--text-dim);font-size:11px;margin-top:20px;text-align:center;}
+  .toast{
+    position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+    background:var(--panel-2);border:1px solid var(--line);padding:10px 18px;border-radius:999px;
+    font-size:13px;z-index:60;opacity:0;pointer-events:none;transition:opacity .3s, bottom .3s;
+  }
+  .toast.show{opacity:1;bottom:28px;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="title">
+      <div class="logo">🎴</div>
+      <div>
+        <h1>Collector Mania</h1>
+        <div class="sub">Collect them all, together</div>
+      </div>
+    </div>
+    <div class="coin-pill">🪙 <span id="coinCount">0</span> <span class="rate" id="coinRate"></span></div>
+  </header>
+
+  <nav>
+    <button class="active" data-view="pull">✨ Pull</button>
+    <button data-view="collection">📖 Collection</button>
+    <button data-view="suggest">💡 Suggestions</button>
+    <button data-view="settings">⚙️ Settings</button>
+  </nav>
+
+  <!-- PULL VIEW -->
+  <div class="view active" id="view-pull">
+    <div class="panel pull-stage">
+      <div class="pull-orb" id="pullOrb">🎴</div>
+      <div class="pull-actions">
+        <button class="btn-accent" id="pullOneBtn">Pull x1 — 50 🪙</button>
+        <button class="btn-accent" id="pullTenBtn">Pull x10 — 450 🪙</button>
+      </div>
+      <div class="clicker-row">
+        <button class="btn-gold" id="clickCoinsBtn">🔍 Search for coins (+5)</button>
+      </div>
+      <div class="odds">
+        Common 55% · Rare 30% · Epic 12% · Legendary 3% — duplicate pulls auto-convert into bonus coins.
+        Coins also trickle in over time based on your collection.
+      </div>
+    </div>
+  </div>
+
+  <!-- COLLECTION VIEW -->
+  <div class="view" id="view-collection">
+    <div class="panel">
+      <div class="collection-stats">
+        <div class="stat-chip"><b id="statOwned">0/0</b>Characters found</div>
+        <div class="stat-chip"><b id="statPulls">0</b>Total pulls</div>
+        <div class="stat-chip"><b id="statCoinsEarned">0</b>Lifetime coins</div>
+      </div>
+      <div class="collection-grid" id="collectionGrid"></div>
+    </div>
+  </div>
+
+  <!-- SUGGESTIONS VIEW -->
+  <div class="view" id="view-suggest">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+        <h3>Suggest a modification or new character</h3>
+        <span class="conn-badge off" id="connBadge"><span class="dot"></span><span id="connText">Offline mode</span></span>
+      </div>
+      <div class="suggest-form">
+        <input type="text" id="suggestName" placeholder="Your name (so we know who said it)" maxlength="24" />
+        <textarea id="suggestText" placeholder="e.g. Add a rainy weather event that boosts frog-type characters..." rows="3" maxlength="300"></textarea>
+        <button class="btn-accent" id="submitSuggestBtn" style="align-self:flex-start;">Submit suggestion</button>
+      </div>
+      <div class="suggest-list" id="suggestList"></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS VIEW -->
+  <div class="view" id="view-settings">
+    <div class="panel">
+      <div class="settings-grid">
+        <div class="settings-row">
+          <div>
+            <b>Live suggestion sync</b>
+            <div class="desc">Paste your shared Firebase config once and everyone's suggestions sync in real time. See the setup guide that came with this game. Without it, suggestions still work but only save on this device.</div>
+          </div>
+        </div>
+        <textarea id="configInput" placeholder='Paste the firebaseConfig object here, e.g. { "apiKey": "...", "authDomain": "...", "projectId": "...", ... }'></textarea>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn-accent" id="saveConfigBtn">Connect</button>
+          <button class="btn-ghost" id="clearConfigBtn">Disconnect</button>
+        </div>
+
+        <div class="settings-row">
+          <div>
+            <b>Backup your save</b>
+            <div class="desc">Your progress autosaves to this browser. Download a backup, or restore one, at any time — handy before clearing browser data or moving to a new computer.</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn-ghost" id="exportSaveBtn">Export save</button>
+            <button class="btn-ghost" id="importSaveBtn">Import save</button>
+          </div>
+        </div>
+
+        <div class="settings-row">
+          <div>
+            <b>Player name</b>
+            <div class="desc">Shown next to your suggestions.</div>
+          </div>
+          <input type="text" id="playerNameInput" maxlength="24" placeholder="Your name" style="background:var(--bg-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 10px;" />
+        </div>
+
+        <div class="settings-row">
+          <div>
+            <b>Reset game</b>
+            <div class="desc">Wipes your local progress on this device only. Cannot be undone.</div>
+          </div>
+          <button class="btn-ghost" id="resetBtn" style="color:#ff8a8a;">Reset progress</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Collector Mania v1 · made for the family · progress autosaves to this browser</footer>
+</div>
+
+<!-- REVEAL MODAL -->
+<div class="modal-backdrop hidden" id="revealModal">
+  <div class="reveal-card" id="revealCard"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<input type="file" id="importFileInput" accept="application/json" class="hidden" />
+
+<script>
+/* =========================================================
+   COLLECTOR MANIA — single-file game
+   ========================================================= */
+
+/* ---------- DATA ---------- */
+const RARITIES = {
+  common:    { label:'Common',    color:'var(--common)',    weight:55, coinValue:2,  idlePerMin:1 },
+  rare:      { label:'Rare',      color:'var(--rare)',      weight:30, coinValue:6,  idlePerMin:3 },
+  epic:      { label:'Epic',      color:'var(--epic)',      weight:12, coinValue:18, idlePerMin:8 },
+  legendary: { label:'Legendary', color:'var(--legendary)', weight:3,  coinValue:60, idlePerMin:20 },
+};
+
+const CREATURES = [
+  { id:'puffshroom', name:'Puffshroom', emoji:'🍄', rarity:'common', flavor:'Bounces when happy. Smells faintly of rain.' },
+  { id:'driftpebble', name:'Driftpebble', emoji:'🪨', rarity:'common', flavor:'A small stone spirit that rolls uphill for fun.' },
+  { id:'twiggle', name:'Twiggle', emoji:'🌿', rarity:'common', flavor:'Grows a new leaf every time it makes a friend.' },
+  { id:'bubblet', name:'Bubblet', emoji:'🫧', rarity:'common', flavor:'Pops if startled, reforms a minute later, unbothered.' },
+  { id:'glimmermoth', name:'Glimmermoth', emoji:'🦋', rarity:'rare', flavor:'Its wings store starlight for cloudy nights.' },
+  { id:'crestfin', name:'Crestfin', emoji:'🐠', rarity:'rare', flavor:'Changes color to match whoever is watching it.' },
+  { id:'emberpup', name:'Emberpup', emoji:'🐕', rarity:'rare', flavor:'Sneezes sparks when excited. Very easily excited.' },
+  { id:'stormtail', name:'Stormtail', emoji:'🦊', rarity:'epic', flavor:'Leaves a trail of static electricity when it runs.' },
+  { id:'frostmane', name:'Frostmane', emoji:'🦁', rarity:'epic', flavor:'Its roar is silent, but frost creeps out for miles.' },
+  { id:'starwyrm', name:'Starwyrm', emoji:'🐉', rarity:'legendary', flavor:'Said to be woven from the same thread as the sky.' },
+];
+
+const SAVE_VERSION = 1;
+const SAVE_KEY = 'collectorMania_save_v1';
+const CONFIG_KEY = 'collectorMania_firebaseConfig';
+const DEVICE_KEY = 'collectorMania_deviceId';
+
+/* ---------- SAVE / LOAD (update-safe) ---------- */
+function defaultSave(){
+  return {
+    version: SAVE_VERSION,
+    coins: 60,
+    owned: {},          // id -> count
+    totalPulls: 0,
+    lifetimeCoins: 60,
+    playerName: '',
+    lastTick: Date.now(),
+  };
+}
+
+function migrateSave(data){
+  // Forward-compatible: fill in any missing fields from newer versions
+  // without discarding whatever the player already has.
+  const base = defaultSave();
+  const merged = Object.assign({}, base, data || {});
+  merged.owned = Object.assign({}, data && data.owned ? data.owned : {});
+  merged.version = SAVE_VERSION;
+  return merged;
+}
+
+function loadSave(){
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(!raw) return defaultSave();
+    const parsed = JSON.parse(raw);
+    return migrateSave(parsed);
+  }catch(e){
+    console.warn('Save load failed, starting fresh.', e);
+    return defaultSave();
+  }
+}
+
+let state = loadSave();
+
+function persist(){
+  localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+}
+
+function getDeviceId(){
+  let id = localStorage.getItem(DEVICE_KEY);
+  if(!id){
+    id = 'dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem(DEVICE_KEY, id);
+  }
+  return id;
+}
+
+/* ---------- ECONOMY ---------- */
+function idleRatePerSecond(){
+  let perMin = 0;
+  for(const id in state.owned){
+    const c = CREATURES.find(c=>c.id===id);
+    if(c) perMin += RARITIES[c.rarity].idlePerMin;
+  }
+  return perMin / 60;
+}
+
+function addCoins(amount){
+  state.coins += amount;
+  state.lifetimeCoins += Math.max(0, amount);
+  renderCoins();
+}
+
+function renderCoins(){
+  document.getElementById('coinCount').textContent = Math.floor(state.coins).toLocaleString();
+  const rate = idleRatePerSecond() * 60;
+  document.getElementById('coinRate').textContent = rate > 0 ? `+${rate.toFixed(1)}/min` : '';
+}
+
+setInterval(()=>{
+  const now = Date.now();
+  const elapsedSec = Math.min(300, (now - (state.lastTick||now)) / 1000); // cap offline catch-up burst
+  state.lastTick = now;
+  const gained = idleRatePerSecond() * elapsedSec;
+  if(gained > 0){ addCoins(gained); persist(); }
+}, 1000);
+
+document.getElementById('clickCoinsBtn').addEventListener('click', ()=>{
+  addCoins(5);
+  persist();
+});
+
+/* ---------- PULLING ---------- */
+function weightedRoll(){
+  const total = Object.values(RARITIES).reduce((s,r)=>s+r.weight,0);
+  let roll = Math.random() * total;
+  for(const key in RARITIES){
+    roll -= RARITIES[key].weight;
+    if(roll <= 0) return key;
+  }
+  return 'common';
+}
+
+function pullOne(){
+  const rarity = weightedRoll();
+  const pool = CREATURES.filter(c=>c.rarity===rarity);
+  const creature = pool[Math.floor(Math.random()*pool.length)];
+  const wasOwned = !!state.owned[creature.id];
+  state.owned[creature.id] = (state.owned[creature.id]||0) + 1;
+  state.totalPulls++;
+  let bonusCoins = 0;
+  if(wasOwned){
+    bonusCoins = RARITIES[creature.rarity].coinValue;
+    addCoins(bonusCoins);
+  }
+  return { creature, wasOwned, bonusCoins };
+}
+
+document.getElementById('pullOneBtn').addEventListener('click', ()=>{
+  if(state.coins < 50) return toast("Not enough coins yet — keep collecting!");
+  state.coins -= 50;
+  const result = pullOne();
+  persist();
+  renderCoins();
+  showSingleReveal(result);
+  renderCollection();
+});
+
+document.getElementById('pullTenBtn').addEventListener('click', ()=>{
+  if(state.coins < 450) return toast("Not enough coins yet — keep collecting!");
+  state.coins -= 450;
+  const results = [];
+  for(let i=0;i<10;i++) results.push(pullOne());
+  persist();
+  renderCoins();
+  showMultiReveal(results);
+  renderCollection();
+});
+
+/* ---------- REVEAL UI ---------- */
+const revealModal = document.getElementById('revealModal');
+const revealCard = document.getElementById('revealCard');
+
+function rarityColorVar(rarity){ return RARITIES[rarity].color; }
+
+function showSingleReveal({creature, wasOwned, bonusCoins}){
+  revealCard.innerHTML = `
+    <div class="reveal-rarity" style="background:${rarityColorVar(creature.rarity)};color:#1a1330;">${RARITIES[creature.rarity].label}</div>
+    <div class="reveal-emoji" style="color:${rarityColorVar(creature.rarity)}">${creature.emoji}</div>
+    <div class="reveal-name">${creature.name}</div>
+    <div class="reveal-flavor">${creature.flavor}</div>
+    ${wasOwned ? `<div class="reveal-dupe">Duplicate → converted to +${bonusCoins} 🪙</div>` : `<div class="reveal-dupe" style="color:var(--good);">New to your collection!</div>`}
+    <button class="btn-accent" id="closeRevealBtn">Nice!</button>
+  `;
+  revealModal.classList.remove('hidden');
+  document.getElementById('closeRevealBtn').addEventListener('click', ()=> revealModal.classList.add('hidden'));
+}
+
+function showMultiReveal(results){
+  const cells = results.map(({creature, wasOwned})=>`
+    <div class="multi-cell" style="border-color:${rarityColorVar(creature.rarity)};color:${rarityColorVar(creature.rarity)}">
+      ${creature.emoji}
+      <div class="nm" style="color:var(--text-dim)">${wasOwned ? 'dupe' : creature.name}</div>
+    </div>
+  `).join('');
+  const newCount = results.filter(r=>!r.wasOwned).length;
+  revealCard.innerHTML = `
+    <div class="reveal-name">10x Pull Results</div>
+    <div class="reveal-flavor">${newCount} new character${newCount===1?'':'s'} found!</div>
+    <div class="multi-grid">${cells}</div>
+    <button class="btn-accent" id="closeRevealBtn">Nice!</button>
+  `;
+  revealModal.classList.remove('hidden');
+  document.getElementById('closeRevealBtn').addEventListener('click', ()=> revealModal.classList.add('hidden'));
+}
+
+/* ---------- COLLECTION VIEW ---------- */
+function renderCollection(){
+  const grid = document.getElementById('collectionGrid');
+  grid.innerHTML = CREATURES.map(c=>{
+    const count = state.owned[c.id] || 0;
+    const locked = count === 0;
+    return `
+      <div class="creature-card ${locked?'locked':''}">
+        <div class="rarity-tag" style="background:${rarityColorVar(c.rarity)}"></div>
+        <div class="emoji">${locked ? '❔' : c.emoji}</div>
+        <div class="nm">${locked ? '???' : c.name}</div>
+        <div class="cnt">${locked ? RARITIES[c.rarity].label : 'x' + count}</div>
+      </div>
+    `;
+  }).join('');
+
+  const ownedCount = CREATURES.filter(c => (state.owned[c.id]||0) > 0).length;
+  document.getElementById('statOwned').textContent = `${ownedCount}/${CREATURES.length}`;
+  document.getElementById('statPulls').textContent = state.totalPulls;
+  document.getElementById('statCoinsEarned').textContent = Math.floor(state.lifetimeCoins).toLocaleString();
+}
+
+/* ---------- NAVIGATION ---------- */
+document.querySelectorAll('nav button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('view-' + btn.dataset.view).classList.add('active');
+  });
+});
+
+/* ---------- TOAST ---------- */
+let toastTimer;
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> el.classList.remove('show'), 2200);
+}
+
+/* ---------- SETTINGS: player name ---------- */
+const playerNameInput = document.getElementById('playerNameInput');
+playerNameInput.value = state.playerName || '';
+playerNameInput.addEventListener('change', ()=>{
+  state.playerName = playerNameInput.value.trim();
+  persist();
+});
+
+/* ---------- SETTINGS: export / import save ---------- */
+document.getElementById('exportSaveBtn').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `collector-mania-save-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Save exported!');
+});
+
+const importFileInput = document.getElementById('importFileInput');
+document.getElementById('importSaveBtn').addEventListener('click', ()=> importFileInput.click());
+importFileInput.addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const parsed = JSON.parse(reader.result);
+      state = migrateSave(parsed);
+      persist();
+      renderCoins();
+      renderCollection();
+      playerNameInput.value = state.playerName || '';
+      toast('Save imported!');
+    }catch(err){
+      toast('Could not read that save file.');
+    }
+  };
+  reader.readAsText(file);
+  importFileInput.value = '';
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  if(!confirm('This wipes your progress on this device. Are you sure?')) return;
+  state = defaultSave();
+  persist();
+  renderCoins();
+  renderCollection();
+  toast('Progress reset.');
+});
+
+/* =========================================================
+   SUGGESTIONS — works offline (localStorage) and, once a
+   Firebase config is connected, syncs live across devices.
+   ========================================================= */
+const LOCAL_SUGGESTIONS_KEY = 'collectorMania_localSuggestions';
+let firebaseReady = false;
+let db = null;
+let unsubscribeSuggestions = null;
+
+function getLocalSuggestions(){
+  try{ return JSON.parse(localStorage.getItem(LOCAL_SUGGESTIONS_KEY)) || []; }
+  catch(e){ return []; }
+}
+function saveLocalSuggestions(list){
+  localStorage.setItem(LOCAL_SUGGESTIONS_KEY, JSON.stringify(list));
+}
+
+function setConnBadge(live){
+  const badge = document.getElementById('connBadge');
+  const text = document.getElementById('connText');
+  badge.classList.toggle('live', live);
+  badge.classList.toggle('off', !live);
+  badge.querySelector('.dot').classList.toggle('live', live);
+  text.textContent = live ? 'Live sync connected' : 'Offline mode (this device only)';
+}
+
+function renderSuggestions(list){
+  const wrap = document.getElementById('suggestList');
+  const deviceId = getDeviceId();
+  const sorted = [...list].sort((a,b)=> (b.votes||0) - (a.votes||0));
+  if(sorted.length === 0){
+    wrap.innerHTML = `<div style="color:var(--text-dim);font-size:13px;">No suggestions yet — be the first!</div>`;
+    return;
+  }
+  wrap.innerHTML = sorted.map(s=>{
+    const voted = (s.voterIds||[]).includes(deviceId);
+    const when = s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '';
+    return `
+      <div class="suggestion-item">
+        <div>
+          <div>${escapeHtml(s.text)}</div>
+          <div class="meta">— ${escapeHtml(s.author || 'Anonymous')} ${when ? '· ' + when : ''}</div>
+        </div>
+        <button class="vote-btn ${voted?'voted':''}" data-id="${s.id}">▲<br>${s.votes||0}</button>
+      </div>
+    `;
+  }).join('');
+  wrap.querySelectorAll('.vote-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> voteSuggestion(btn.dataset.id));
+  });
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+function submitSuggestion(text, author){
+  const entry = {
+    id: 'sg_' + Math.random().toString(36).slice(2) + Date.now().toString(36),
+    text, author: author || 'Anonymous',
+    votes: 0, voterIds: [],
+    createdAt: Date.now(),
+  };
+  if(firebaseReady && db){
+    db.collection('suggestions').add({
+      text: entry.text, author: entry.author, votes: 0, voterIds: [], createdAt: Date.now(),
+    }).catch(err=>{ console.error(err); toast('Could not sync — saved locally instead.'); saveLocallyAndRender(entry); });
+  }else{
+    saveLocallyAndRender(entry);
+  }
+}
+
+function saveLocallyAndRender(entry){
+  const list = getLocalSuggestions();
+  list.push(entry);
+  saveLocalSuggestions(list);
+  renderSuggestions(list);
+}
+
+function voteSuggestion(id){
+  const deviceId = getDeviceId();
+  if(firebaseReady && db){
+    const ref = db.collection('suggestions').doc(id);
+    db.runTransaction(async (tx)=>{
+      const doc = await tx.get(ref);
+      if(!doc.exists) return;
+      const data = doc.data();
+      const voters = data.voterIds || [];
+      if(voters.includes(deviceId)) return; // already voted
+      tx.update(ref, { votes: (data.votes||0)+1, voterIds: [...voters, deviceId] });
+    }).catch(err=>console.error(err));
+  }else{
+    const list = getLocalSuggestions();
+    const item = list.find(s=>s.id===id);
+    if(item && !(item.voterIds||[]).includes(deviceId)){
+      item.votes = (item.votes||0)+1;
+      item.voterIds = [...(item.voterIds||[]), deviceId];
+      saveLocalSuggestions(list);
+      renderSuggestions(list);
+    }
+  }
+}
+
+document.getElementById('submitSuggestBtn').addEventListener('click', ()=>{
+  const textEl = document.getElementById('suggestText');
+  const nameEl = document.getElementById('suggestName');
+  const text = textEl.value.trim();
+  if(!text) return toast('Write a suggestion first!');
+  const author = nameEl.value.trim() || state.playerName || 'Anonymous';
+  submitSuggestion(text, author);
+  textEl.value = '';
+  toast('Suggestion submitted!');
+});
+
+// prefill suggestion name field from player name
+document.getElementById('suggestName').value = state.playerName || '';
+
+/* ---------- FIREBASE CONNECTION ---------- */
+function loadFirebaseScripts(cb){
+  if(window.firebase && window.firebase.apps){ cb(); return; }
+  const s1 = document.createElement('script');
+  s1.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js';
+  s1.onload = ()=>{
+    const s2 = document.createElement('script');
+    s2.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js';
+    s2.onload = cb;
+    s2.onerror = ()=> toast('Could not load live sync (check your internet connection).');
+    document.head.appendChild(s2);
+  };
+  s1.onerror = ()=> toast('Could not load live sync (check your internet connection).');
+  document.head.appendChild(s1);
+}
+
+function connectFirebase(config){
+  loadFirebaseScripts(()=>{
+    try{
+      if(!window.firebase.apps.length){
+        window.firebase.initializeApp(config);
+      }
+      db = window.firebase.firestore();
+      firebaseReady = true;
+      setConnBadge(true);
+      if(unsubscribeSuggestions) unsubscribeSuggestions();
+      unsubscribeSuggestions = db.collection('suggestions').onSnapshot(snap=>{
+        const list = [];
+        snap.forEach(doc=> list.push({ id: doc.id, ...doc.data() }));
+        renderSuggestions(list);
+      }, err=>{
+        console.error(err);
+        toast('Live sync error — check your Firestore rules.');
+      });
+    }catch(e){
+      console.error(e);
+      toast('That config did not work — double check it and try again.');
+      firebaseReady = false;
+      setConnBadge(false);
+    }
+  });
+}
+
+function parseConfigInput(raw){
+  const trimmed = raw.trim();
+  if(!trimmed) return null;
+  // Accept either a bare {...} object or a full "const firebaseConfig = {...}" snippet
+  const match = trimmed.match(/\{[\s\S]*\}/);
+  const objText = match ? match[0] : trimmed;
+  // eslint-disable-next-line no-new-func
+  return Function('"use strict"; return (' + objText + ');')();
+}
+
+document.getElementById('saveConfigBtn').addEventListener('click', ()=>{
+  const raw = document.getElementById('configInput').value;
+  try{
+    const config = parseConfigInput(raw);
+    if(!config || !config.apiKey || !config.projectId){
+      toast('That doesn\'t look like a valid Firebase config.');
+      return;
+    }
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+    connectFirebase(config);
+    toast('Connecting...');
+  }catch(e){
+    toast('Could not parse that config — paste the object from the Firebase console.');
+  }
+});
+
+document.getElementById('clearConfigBtn').addEventListener('click', ()=>{
+  localStorage.removeItem(CONFIG_KEY);
+  firebaseReady = false;
+  db = null;
+  if(unsubscribeSuggestions){ unsubscribeSuggestions(); unsubscribeSuggestions = null; }
+  setConnBadge(false);
+  renderSuggestions(getLocalSuggestions());
+  document.getElementById('configInput').value = '';
+  toast('Disconnected from live sync.');
+});
+
+/* ---------- INIT ---------- */
+function init(){
+  renderCoins();
+  renderCollection();
+  renderSuggestions(getLocalSuggestions());
+  setConnBadge(false);
+
+  const savedConfigRaw = localStorage.getItem(CONFIG_KEY);
+  if(savedConfigRaw){
+    try{
+      const config = JSON.parse(savedConfigRaw);
+      document.getElementById('configInput').value = JSON.stringify(config, null, 2);
+      connectFirebase(config);
+    }catch(e){ console.warn('Stored config was invalid.'); }
+  }
+}
+init();
+</script>
+</body>
+</html>
