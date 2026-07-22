@@ -129,6 +129,28 @@
   }
   .multi-cell .nm{font-size:9px;color:var(--text-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
+  /* MEMORY MATCH */
+  .memory-card{
+    background:var(--panel);border-radius:20px;padding:24px;text-align:center;
+    width:100%;max-width:420px;border:2px solid var(--accent);
+    animation:pop .35s cubic-bezier(.2,1.4,.4,1);
+  }
+  .memory-header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px;text-align:left;}
+  .memory-title{font-size:18px;font-weight:700;}
+  .memory-sub{font-size:12px;color:var(--text-dim);margin-top:2px;}
+  .memory-stats{display:flex;gap:8px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;}
+  .memory-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+  .memory-cell{
+    aspect-ratio:1;border-radius:10px;background:var(--panel-2);border:2px solid var(--line);
+    display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer;
+    transition:transform .15s, background .15s;
+  }
+  .memory-cell:hover:not(.flipped):not(.matched){transform:translateY(-2px);border-color:var(--accent);}
+  .memory-cell.flipped{background:var(--panel);border-color:var(--accent);}
+  .memory-cell.matched{background:rgba(92,255,176,.12);border-color:var(--good);cursor:default;}
+  .memory-result{margin-top:16px;font-size:14px;line-height:1.6;}
+  .memory-result .reward{font-size:20px;font-weight:800;color:var(--gold);margin:4px 0 12px;}
+
   /* COLLECTION */
   .collection-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
   .stat-chip{background:var(--panel-2);border-radius:10px;padding:8px 14px;font-size:12px;color:var(--text-dim);}
@@ -228,12 +250,13 @@
         <button class="btn-accent" id="pullTenBtn">Pull x10 — 450 🪙</button>
       </div>
       <div class="clicker-row">
-        <button class="btn-gold" id="clickCoinsBtn">🔍 Search for coins (+5)</button>
+        <button class="btn-gold" id="playMemoryBtn">🧠 Play Memory Match for coins</button>
       </div>
       <div class="odds">
         Common 55% · Rare 30% · Epic 12% · Legendary 3% — duplicate pulls auto-convert into bonus coins.
         Coins also trickle in over time based on your collection.<br>
-        6 themed collections, 30 characters total — complete a set for a bonus.
+        6 themed collections, 30 characters total — complete a set for a bonus.<br>
+        Play Memory Match for coins — fewer moves and a faster time earn more.
       </div>
     </div>
   </div>
@@ -319,6 +342,26 @@
 <!-- REVEAL MODAL -->
 <div class="modal-backdrop hidden" id="revealModal">
   <div class="reveal-card" id="revealCard"></div>
+</div>
+
+<!-- MEMORY MATCH MODAL -->
+<div class="modal-backdrop hidden" id="memoryModal">
+  <div class="memory-card">
+    <div class="memory-header">
+      <div>
+        <div class="memory-title">🧠 Memory Match</div>
+        <div class="memory-sub">Find every pair. Fewer moves and a faster time earn more coins.</div>
+      </div>
+      <button class="btn-ghost" id="memoryCloseBtn">✕</button>
+    </div>
+    <div class="memory-stats">
+      <div class="stat-chip"><b id="memoryMoves">0</b>Moves</div>
+      <div class="stat-chip"><b id="memoryMatches">0/6</b>Matches</div>
+      <div class="stat-chip"><b id="memoryTime">0s</b>Time</div>
+    </div>
+    <div class="memory-grid" id="memoryGrid"></div>
+    <div class="memory-result hidden" id="memoryResult"></div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -495,9 +538,120 @@ setInterval(()=>{
   if(gained > 0){ addCoins(gained); persist(); }
 }, 1000);
 
-document.getElementById('clickCoinsBtn').addEventListener('click', ()=>{
-  addCoins(5);
+/* ---------- MEMORY MATCH MINIGAME ---------- */
+const MEMORY_PAIRS = 6;
+const MEMORY_BASE_REWARD = 200;
+const MEMORY_MIN_REWARD = 60;
+const MEMORY_MOVE_PENALTY = 10;
+
+let memory = null; // { cards, flipped, matched, moves, startedAt, timerId, locked }
+
+const memoryModal = document.getElementById('memoryModal');
+const memoryGrid = document.getElementById('memoryGrid');
+const memoryResult = document.getElementById('memoryResult');
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function startMemoryGame(){
+  const chosen = shuffle(CREATURES).slice(0, MEMORY_PAIRS);
+  const cards = shuffle(chosen.concat(chosen)).map(c => ({ creatureId:c.id, emoji:c.emoji }));
+  memory = {
+    cards,
+    flipped: [],      // indices currently face-up, unresolved
+    matched: new Set(),
+    moves: 0,
+    startedAt: Date.now(),
+    locked: false,
+  };
+  memoryResult.classList.add('hidden');
+  memoryResult.innerHTML = '';
+  memoryModal.classList.remove('hidden');
+  renderMemoryGrid();
+  updateMemoryStats();
+  if(memory.timerId) clearInterval(memory.timerId);
+  memory.timerId = setInterval(updateMemoryStats, 1000);
+}
+
+function renderMemoryGrid(){
+  memoryGrid.innerHTML = memory.cards.map((card, i)=>{
+    const isFlipped = memory.flipped.includes(i);
+    const isMatched = memory.matched.has(i);
+    const showFace = isFlipped || isMatched;
+    return `<div class="memory-cell ${isFlipped?'flipped':''} ${isMatched?'matched':''}" data-index="${i}">${showFace ? card.emoji : '❔'}</div>`;
+  }).join('');
+  memoryGrid.querySelectorAll('.memory-cell').forEach(cell=>{
+    cell.addEventListener('click', ()=> onMemoryCellClick(parseInt(cell.dataset.index, 10)));
+  });
+}
+
+function updateMemoryStats(){
+  if(!memory) return;
+  document.getElementById('memoryMoves').textContent = memory.moves;
+  document.getElementById('memoryMatches').textContent = `${memory.matched.size / 2}/${MEMORY_PAIRS}`;
+  const elapsed = Math.floor((Date.now() - memory.startedAt) / 1000);
+  document.getElementById('memoryTime').textContent = `${elapsed}s`;
+}
+
+function onMemoryCellClick(i){
+  if(!memory || memory.locked) return;
+  if(memory.matched.has(i) || memory.flipped.includes(i)) return;
+  if(memory.flipped.length >= 2) return;
+
+  memory.flipped.push(i);
+  renderMemoryGrid();
+
+  if(memory.flipped.length === 2){
+    memory.moves++;
+    updateMemoryStats();
+    const [a, b] = memory.flipped;
+    if(memory.cards[a].creatureId === memory.cards[b].creatureId){
+      memory.matched.add(a);
+      memory.matched.add(b);
+      memory.flipped = [];
+      renderMemoryGrid();
+      if(memory.matched.size === memory.cards.length){
+        finishMemoryGame();
+      }
+    }else{
+      memory.locked = true;
+      setTimeout(()=>{
+        memory.flipped = [];
+        memory.locked = false;
+        renderMemoryGrid();
+      }, 700);
+    }
+  }
+}
+
+function finishMemoryGame(){
+  clearInterval(memory.timerId);
+  const elapsedSec = Math.floor((Date.now() - memory.startedAt) / 1000);
+  const moveReward = Math.max(MEMORY_MIN_REWARD, MEMORY_BASE_REWARD - (memory.moves - MEMORY_PAIRS) * MEMORY_MOVE_PENALTY);
+  const timeBonus = elapsedSec <= 15 ? 30 : elapsedSec <= 30 ? 15 : 0;
+  const reward = moveReward + timeBonus;
+  addCoins(reward);
   persist();
+  updateMemoryStats();
+  memoryResult.classList.remove('hidden');
+  memoryResult.innerHTML = `
+    Cleared the board in <b>${memory.moves}</b> moves and <b>${elapsedSec}s</b>.
+    <div class="reward">+${reward} 🪙</div>
+    <button class="btn-accent" id="memoryPlayAgainBtn">Play again</button>
+  `;
+  document.getElementById('memoryPlayAgainBtn').addEventListener('click', startMemoryGame);
+}
+
+document.getElementById('playMemoryBtn').addEventListener('click', startMemoryGame);
+document.getElementById('memoryCloseBtn').addEventListener('click', ()=>{
+  if(memory && memory.timerId) clearInterval(memory.timerId);
+  memoryModal.classList.add('hidden');
 });
 
 /* ---------- PULLING ---------- */
