@@ -24,22 +24,38 @@
     --radius:14px;
   }
   /* Purchasable background themes — swap the ambient gradient + accent glow.
-     Applied via body[data-bg="id"], default theme needs no override. */
+     Applied via body[data-bg="id"], default theme needs no override.
+     NOTE: these only set background-image (not the background shorthand) so
+     they don't clobber the fixed/no-repeat/cover setup on the base body rule
+     below — that setup is what keeps the gradient a single, stable backdrop
+     instead of visibly tiling/restarting once the page scrolls past one
+     viewport height (see body{} comment). */
   body[data-bg="sunset"]{ --bg-2:#1a0e0d; --accent:#ff9d5c; --accent-2:#ff5c7a; }
-  body[data-bg="sunset"]{ background:radial-gradient(circle at 20% 10%, #4d2a1e 0%, var(--bg-2) 55%); }
+  body[data-bg="sunset"]{ background-image:radial-gradient(circle at 20% 10%, #4d2a1e 0%, var(--bg-2) 55%); }
   body[data-bg="forest"]{ --bg-2:#0a1a12; --accent:#5cff9d; --accent-2:#8fff5c; }
-  body[data-bg="forest"]{ background:radial-gradient(circle at 20% 10%, #1e4d33 0%, var(--bg-2) 55%); }
+  body[data-bg="forest"]{ background-image:radial-gradient(circle at 20% 10%, #1e4d33 0%, var(--bg-2) 55%); }
   body[data-bg="ocean"]{ --bg-2:#0a1420; --accent:#5cb8ff; --accent-2:#5cffe0; }
-  body[data-bg="ocean"]{ background:radial-gradient(circle at 20% 10%, #1e3a4d 0%, var(--bg-2) 55%); }
+  body[data-bg="ocean"]{ background-image:radial-gradient(circle at 20% 10%, #1e3a4d 0%, var(--bg-2) 55%); }
   body[data-bg="aurora"]{ --bg-2:#0f0a1f; --accent:#5cffb0; --accent-2:#c15cff; }
-  body[data-bg="aurora"]{ background:radial-gradient(circle at 20% 10%, #2a1e4d 0%, var(--bg-2) 55%, #0f0a1f 100%); }
+  body[data-bg="aurora"]{ background-image:radial-gradient(circle at 20% 10%, #2a1e4d 0%, var(--bg-2) 55%, #0f0a1f 100%); }
   *{box-sizing:border-box;}
   html,body{height:100%;}
   body{
     margin:0;
     font-family:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
-    background:radial-gradient(circle at 20% 10%, #2a1e4d 0%, var(--bg-2) 55%);
-    transition:background .4s ease;
+    /* Background is pinned to the viewport (fixed + no-repeat + cover) rather
+       than painted into the body's own box. Previously the gradient was one
+       image sized to a single viewport-height tile and then browser-default
+       background-repeat tiled it vertically — on any page taller than one
+       screen (Settings, Collection, etc.) that showed up as the gradient
+       visibly cutting off and restarting partway down. Pinning it to the
+       viewport means there's only ever one instance, so it can't seam. */
+    background-color:var(--bg-2);
+    background-image:radial-gradient(circle at 20% 10%, #2a1e4d 0%, var(--bg-2) 55%);
+    background-repeat:no-repeat;
+    background-attachment:fixed;
+    background-size:cover;
+    transition:background-image .4s ease;
     color:var(--text);
     min-height:100vh;
     display:flex;
@@ -312,6 +328,25 @@
   .dot.live{animation:pulse 1.4s infinite;}
   @keyframes pulse{0%{opacity:1;}50%{opacity:.3;}100%{opacity:1;}}
 
+  /* LEADERBOARD */
+  .leaderboard-hint{font-size:11px;color:var(--text-dim);margin:-4px 0 14px;}
+  .leaderboard-list{display:flex;flex-direction:column;gap:8px;}
+  .leaderboard-row{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:10px 14px;
+    display:flex;align-items:center;gap:12px;
+  }
+  .leaderboard-row.me{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset;}
+  .leaderboard-rank{font-size:15px;font-weight:800;color:var(--text-dim);min-width:26px;text-align:center;}
+  .leaderboard-row:nth-child(1) .leaderboard-rank{color:var(--gold);}
+  .leaderboard-row:nth-child(2) .leaderboard-rank{color:#d7d7e6;}
+  .leaderboard-row:nth-child(3) .leaderboard-rank{color:#c98a4b;}
+  .leaderboard-name{flex:1;min-width:0;}
+  .leaderboard-name .nm{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .leaderboard-name .you-tag{font-size:10px;color:var(--accent);font-weight:800;margin-left:6px;}
+  .leaderboard-stats{display:flex;gap:14px;font-size:12px;color:var(--text-dim);flex-shrink:0;}
+  .leaderboard-stats b{color:var(--text);}
+  .leaderboard-empty{color:var(--text-dim);font-size:13px;}
+
   /* SETTINGS */
   .settings-grid{display:flex;flex-direction:column;gap:14px;}
   .settings-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel-2);border-radius:12px;padding:12px 16px;}
@@ -354,6 +389,7 @@
   <nav>
     <button class="active" data-view="pull">✨ Pull</button>
     <button data-view="collection">📖 Collection</button>
+    <button data-view="leaderboard">🏆 Leaderboard</button>
     <button data-view="suggest">💡 Suggestions</button>
     <button data-view="settings">⚙️ Settings</button>
   </nav>
@@ -416,6 +452,18 @@
       <div class="dupe-hint" id="collectionDupeHint">Own more than one of a character? Sell the extras for quick coins, or sacrifice them for blood coins to spend on minigame upgrades (⚙️ see the Pull tab).</div>
       <div class="blood-coin-strip hidden" id="bloodCoinStripCollection"></div>
       <div id="collectionGrid"></div>
+    </div>
+  </div>
+
+  <!-- LEADERBOARD VIEW -->
+  <div class="view" id="view-leaderboard">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+        <h3>🏆 Leaderboard</h3>
+        <span class="conn-badge off" id="leaderboardConnBadge"><span class="dot"></span><span id="leaderboardConnText">Offline mode</span></span>
+      </div>
+      <div class="leaderboard-hint">Ranked by Prestige, then by coins. Updates live as everyone plays — refresh anytime to see the latest.</div>
+      <div id="leaderboardList"></div>
     </div>
   </div>
 
@@ -485,7 +533,7 @@
         <div class="settings-row">
           <div>
             <b>Player name</b>
-            <div class="desc">Shown next to your suggestions.</div>
+            <div class="desc">Your public game name — shown on the Leaderboard and next to your suggestions. Can't be blank.</div>
           </div>
           <input type="text" id="playerNameInput" maxlength="24" placeholder="Your name" style="background:var(--bg-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 10px;" />
         </div>
@@ -582,6 +630,17 @@
       <button class="btn-ghost" id="prestigeCancelBtn">Cancel</button>
       <button class="btn-accent" id="prestigeConfirmBtn">Prestige now</button>
     </div>
+  </div>
+</div>
+
+<!-- NAME GATE MODAL — blocks all play until a game name is chosen. No close
+     button and not dismissible by clicking the backdrop, on purpose. -->
+<div class="modal-backdrop hidden" id="nameGateModal" style="z-index:200;">
+  <div class="reveal-card" style="max-width:380px;">
+    <div class="reveal-name">Welcome to Collector Mania!</div>
+    <div class="reveal-flavor" style="min-height:0;margin-bottom:18px;">Pick a game name before you start playing — it's how you'll show up on the public leaderboard and in Suggestions.</div>
+    <input type="text" id="nameGateInput" maxlength="24" placeholder="Your game name" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;text-align:center;margin-bottom:14px;" />
+    <button class="btn-accent" id="nameGateSubmitBtn" disabled style="width:100%;">Let's play!</button>
   </div>
 </div>
 
@@ -831,6 +890,7 @@ function doPrestige(){
   renderPrestigePanel();
   renderPrestigeGates();
   document.getElementById('prestigeModal').classList.add('hidden');
+  pushPlayerStats();
   toast(`Prestige ${nextLevel} reached! Blood Sacrifice is unlocked and coin gain is up ${Math.round(prestigeCoinMultiplier()*100-100)}%.`);
 }
 
@@ -1586,8 +1646,17 @@ function toast(msg){
 const playerNameInput = document.getElementById('playerNameInput');
 playerNameInput.value = state.playerName || '';
 playerNameInput.addEventListener('change', ()=>{
-  state.playerName = playerNameInput.value.trim();
+  const trimmed = playerNameInput.value.trim();
+  if(!trimmed){
+    // Game name can never be blanked out once set — that's what unlocks play
+    // and what shows up on the public leaderboard.
+    playerNameInput.value = state.playerName || '';
+    toast("Your game name can't be blank.");
+    return;
+  }
+  state.playerName = trimmed;
   persist();
+  pushPlayerStats();
 });
 
 /* ---------- SETTINGS: export / import save ---------- */
@@ -1652,6 +1721,7 @@ const LOCAL_SUGGESTIONS_KEY = 'collectorMania_localSuggestions';
 let firebaseReady = false;
 let db = null;
 let unsubscribeSuggestions = null;
+let unsubscribeLeaderboard = null;
 
 function getLocalSuggestions(){
   try{ return JSON.parse(localStorage.getItem(LOCAL_SUGGESTIONS_KEY)) || []; }
@@ -1662,12 +1732,19 @@ function saveLocalSuggestions(list){
 }
 
 function setConnBadge(live){
-  const badge = document.getElementById('connBadge');
-  const text = document.getElementById('connText');
-  badge.classList.toggle('live', live);
-  badge.classList.toggle('off', !live);
-  badge.querySelector('.dot').classList.toggle('live', live);
-  text.textContent = live ? 'Live sync connected' : 'Offline mode (this device only)';
+  const offlineText = {
+    connBadge: 'Offline mode (this device only)',
+    leaderboardConnBadge: 'Offline — leaderboard needs live sync',
+  };
+  [['connBadge','connText'], ['leaderboardConnBadge','leaderboardConnText']].forEach(([badgeId, textId])=>{
+    const badge = document.getElementById(badgeId);
+    const text = document.getElementById(textId);
+    if(!badge || !text) return;
+    badge.classList.toggle('live', live);
+    badge.classList.toggle('off', !live);
+    badge.querySelector('.dot').classList.toggle('live', live);
+    text.textContent = live ? 'Live sync connected' : offlineText[badgeId];
+  });
 }
 
 function renderSuggestions(list){
@@ -1797,6 +1874,17 @@ function connectFirebase(config){
         console.error(err);
         toast('Live sync error — check your Firestore rules.');
       });
+
+      if(unsubscribeLeaderboard) unsubscribeLeaderboard();
+      unsubscribeLeaderboard = db.collection('players').onSnapshot(snap=>{
+        const list = [];
+        snap.forEach(doc=> list.push({ id: doc.id, ...doc.data() }));
+        renderLeaderboard(list);
+      }, err=>{
+        console.error(err);
+        toast('Leaderboard sync error — check your Firestore rules.');
+      });
+      pushPlayerStats();
     }catch(e){
       console.error(e);
       toast('That config did not work — double check it and try again.');
@@ -1837,11 +1925,109 @@ document.getElementById('clearConfigBtn').addEventListener('click', ()=>{
   firebaseReady = false;
   db = null;
   if(unsubscribeSuggestions){ unsubscribeSuggestions(); unsubscribeSuggestions = null; }
+  if(unsubscribeLeaderboard){ unsubscribeLeaderboard(); unsubscribeLeaderboard = null; }
   setConnBadge(false);
   renderSuggestions(getLocalSuggestions());
+  renderLeaderboard([]);
   document.getElementById('configInput').value = '';
   toast('Disconnected from live sync.');
 });
+
+/* =========================================================
+   LEADERBOARD — public, backed by the same Firestore project
+   as Suggestions. Each device owns exactly one doc (keyed by
+   deviceId) in the `players` collection, upserted with its
+   current name/coins/blood coins/prestige. Ranked by Prestige
+   level first, then current coins, as the tiebreaker.
+   ========================================================= */
+const LEADERBOARD_PUSH_INTERVAL_MS = 20000;
+let lastLeaderboardPush = 0;
+
+function bloodCoinsTotal(){
+  return Object.values(state.bloodCoins || {}).reduce((sum, n) => sum + (n||0), 0);
+}
+
+function pushPlayerStats(){
+  if(!firebaseReady || !db) return;
+  const name = (state.playerName || '').trim();
+  if(!name) return; // name gate should prevent this, but never publish an unnamed entry
+  lastLeaderboardPush = Date.now();
+  db.collection('players').doc(getDeviceId()).set({
+    name,
+    coins: Math.floor(state.coins || 0),
+    bloodCoins: bloodCoinsTotal(),
+    prestigeLevel: state.prestigeLevel || 0,
+    updatedAt: Date.now(),
+  }, { merge: true }).catch(err => console.error('Leaderboard push failed', err));
+}
+
+function renderLeaderboard(list){
+  const wrap = document.getElementById('leaderboardList');
+  if(!wrap) return;
+  if(!firebaseReady){
+    wrap.innerHTML = `<div class="leaderboard-empty">Connect live sync (⚙️ Settings) to see the public leaderboard.</div>`;
+    return;
+  }
+  if(!list.length){
+    wrap.innerHTML = `<div class="leaderboard-empty">No one's on the board yet — be the first!</div>`;
+    return;
+  }
+  const deviceId = getDeviceId();
+  const sorted = [...list].sort((a,b)=>{
+    const p = (b.prestigeLevel||0) - (a.prestigeLevel||0);
+    if(p !== 0) return p;
+    return (b.coins||0) - (a.coins||0);
+  });
+  wrap.innerHTML = `<div class="leaderboard-list">${sorted.map((p, i)=>`
+    <div class="leaderboard-row ${p.id===deviceId ? 'me' : ''}">
+      <div class="leaderboard-rank">${i+1}</div>
+      <div class="leaderboard-name">
+        <span class="nm">${escapeHtml(p.name || 'Anonymous')}</span>${p.id===deviceId ? '<span class="you-tag">YOU</span>' : ''}
+      </div>
+      <div class="leaderboard-stats">
+        <span>🌟 <b>${p.prestigeLevel||0}</b></span>
+        <span>🪙 <b>${(p.coins||0).toLocaleString()}</b></span>
+        <span>🩸 <b>${(p.bloodCoins||0).toLocaleString()}</b></span>
+      </div>
+    </div>
+  `).join('')}</div>`;
+}
+
+/* ---------- NAME GATE — a game name is required before playing ---------- */
+function hasPlayerName(){
+  return !!(state.playerName && state.playerName.trim());
+}
+
+function showNameGate(){
+  const modal = document.getElementById('nameGateModal');
+  const input = document.getElementById('nameGateInput');
+  const btn = document.getElementById('nameGateSubmitBtn');
+  modal.classList.remove('hidden');
+  input.value = '';
+  btn.disabled = true;
+  input.focus();
+}
+
+function submitNameGate(){
+  const input = document.getElementById('nameGateInput');
+  const name = input.value.trim();
+  if(!name) return;
+  state.playerName = name;
+  persist();
+  playerNameInput.value = name;
+  document.getElementById('suggestName').value = name;
+  document.getElementById('nameGateModal').classList.add('hidden');
+  pushPlayerStats();
+  toast(`Welcome, ${name}!`);
+}
+
+document.getElementById('nameGateInput').addEventListener('input', ()=>{
+  document.getElementById('nameGateSubmitBtn').disabled = !document.getElementById('nameGateInput').value.trim();
+});
+document.getElementById('nameGateInput').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter' && document.getElementById('nameGateInput').value.trim()) submitNameGate();
+});
+document.getElementById('nameGateSubmitBtn').addEventListener('click', submitNameGate);
 
 /* ---------- INIT ---------- */
 function init(){
@@ -1861,8 +2047,11 @@ function init(){
   applyBackground(state.background);
   renderBgShop();
   renderSuggestions(getLocalSuggestions());
+  renderLeaderboard([]);
   setConnBadge(false);
   announceSetCompletions(newlyCompleted);
+
+  if(!hasPlayerName()) showNameGate();
 
   const savedConfigRaw = localStorage.getItem(CONFIG_KEY);
   let configToUse = DEFAULT_FIREBASE_CONFIG;
@@ -1872,6 +2061,12 @@ function init(){
   }
   document.getElementById('configInput').value = JSON.stringify(configToUse, null, 2);
   connectFirebase(configToUse);
+
+  // Keep the public leaderboard fresh even during a long play session —
+  // periodic push on top of the immediate pushes after name/prestige changes.
+  setInterval(()=>{
+    if(Date.now() - lastLeaderboardPush >= LEADERBOARD_PUSH_INTERVAL_MS) pushPlayerStats();
+  }, LEADERBOARD_PUSH_INTERVAL_MS);
 }
 init();
 </script>
