@@ -21,6 +21,8 @@
     --rare:#5cb8ff;
     --epic:#c15cff;
     --legendary:#ffb14e;
+    --elder:#4fae8a;
+    --mythic:#ff4f81;
     --radius:14px;
   }
   /* Purchasable background themes — swap the ambient gradient + accent glow.
@@ -504,7 +506,7 @@
           <div class="upg-desc">Sacrifice duplicate characters in your Collection for blood coins, then spend them here to permanently boost Memory Match's coin reward.</div>
           <div class="blood-coin-strip" id="bloodCoinStripPull"></div>
           <div class="upgrade-row">
-            <span class="upgrade-level-badge" id="upgradeLevelBadge">Level 0/5</span>
+            <span class="upgrade-level-badge" id="upgradeLevelBadge">Level 0/7</span>
             <span id="upgradeEffectLabel">No bonus yet</span>
             <button class="upgrade-buy-btn" id="upgradeBuyBtn">Upgrade</button>
           </div>
@@ -514,16 +516,16 @@
           <div class="upg-desc">Same idea as the Memory Match upgrade — spend blood coins here to permanently boost Creature Recall's per-round coin reward.</div>
           <div class="blood-coin-strip" id="bloodCoinStripRecall"></div>
           <div class="upgrade-row">
-            <span class="upgrade-level-badge" id="recallUpgradeLevelBadge">Level 0/5</span>
+            <span class="upgrade-level-badge" id="recallUpgradeLevelBadge">Level 0/7</span>
             <span id="recallUpgradeEffectLabel">No bonus yet</span>
             <button class="upgrade-buy-btn" id="recallUpgradeBuyBtn">Upgrade</button>
           </div>
         </div>
       </div>
       <div class="odds">
-        <span id="oddsLine">Common 55% · Rare 30% · Epic 12% · Legendary 3%</span> — duplicates join your collection as extra copies you can sell anytime.
+        <span id="oddsLine">Common 44% · Rare 28% · Epic 17% · Legendary 7% · Elder 3% · Mythic 1%</span> — duplicates join your collection as extra copies you can sell anytime.
         Coins also trickle in over time based on your collection.<br>
-        6 themed collections, 30 characters total — complete a set for a bonus.<br>
+        7 themed collections, 49 characters total — complete a set for a bonus.<br>
         Play Memory Match for coins — fewer moves and a faster time earn more.<br>
         <span id="pityLine" class="pity-line"></span>
       </div>
@@ -596,7 +598,7 @@
             <b>🌟 Prestige <span class="prestige-level-badge" id="prestigeLevelBadge">Prestige 0</span></b>
             <div class="desc">Reset your run to permanently unlock Blood Sacrifice and gain +10% coin income per level, stacking forever. Your collection, coins, blood coins, and minigame unlocks all reset — but your prestige level, lifetime stats, and backgrounds are kept.</div>
             <div class="prestige-reqs">
-              <div id="prestigeReqCollection">❌ Own all 30 characters (0/30)</div>
+              <div id="prestigeReqCollection">❌ Own all 49 characters (0/49)</div>
               <div id="prestigeReqCoins">❌ Have 5,000 🪙 banked (0/5,000)</div>
             </div>
             <div class="prestige-milestones">🌟 P1: Blood Sacrifice · P3: exclusive Celestial background · P5: −20% pull costs, forever</div>
@@ -784,13 +786,19 @@
    ========================================================= */
 
 /* ---------- DATA ---------- */
+// Elder and Mythic sit above Legendary. Elder is deliberately named and
+// tuned to feel like a quiet, unassuming tier despite being rarer and more
+// valuable than Legendary — the flashy naming is saved for Mythic, the true
+// top tier (see RARITY_SFX below for the same restraint applied to sound).
 const RARITIES = {
-  common:    { label:'Common',    color:'var(--common)',    weight:55, coinValue:2,  idlePerMin:1,  bloodValue:1 },
-  rare:      { label:'Rare',      color:'var(--rare)',      weight:30, coinValue:6,  idlePerMin:3,  bloodValue:2 },
-  epic:      { label:'Epic',      color:'var(--epic)',      weight:12, coinValue:18, idlePerMin:8,  bloodValue:3 },
-  legendary: { label:'Legendary', color:'var(--legendary)', weight:3,  coinValue:60, idlePerMin:20, bloodValue:4 },
+  common:    { label:'Common',    color:'var(--common)',    weight:44, coinValue:2,   idlePerMin:1,  bloodValue:1 },
+  rare:      { label:'Rare',      color:'var(--rare)',      weight:28, coinValue:6,   idlePerMin:3,  bloodValue:2 },
+  epic:      { label:'Epic',      color:'var(--epic)',      weight:17, coinValue:18,  idlePerMin:8,  bloodValue:3 },
+  legendary: { label:'Legendary', color:'var(--legendary)', weight:7,  coinValue:60,  idlePerMin:20, bloodValue:4 },
+  elder:     { label:'Elder',     color:'var(--elder)',     weight:3,  coinValue:100, idlePerMin:35, bloodValue:5 },
+  mythic:    { label:'Mythic',    color:'var(--mythic)',    weight:1,  coinValue:250, idlePerMin:80, bloodValue:8 },
 };
-const BLOOD_ICON = { common:'🩸', rare:'🩸', epic:'🩸', legendary:'🩸' };
+const BLOOD_ICON = { common:'🩸', rare:'🩸', epic:'🩸', legendary:'🩸', elder:'🩸', mythic:'🩸' };
 
 // Sacrificing a duplicate burns it for "blood coins" of that rarity's type
 // instead of regular coins — a slower-burning currency spent on minigame
@@ -798,12 +806,17 @@ const BLOOD_ICON = { common:'🩸', rare:'🩸', epic:'🩸', legendary:'🩸' }
 // blood coin TYPES based off of rarity... common gives 1, rare gives 2").
 // Spend blood coins of the matching type to raise Memory Match's reward
 // output — five tiers, escalating through the rarities as you climb.
+// Levels 6-7 (added alongside the Elder/Mythic rarities) give those two new
+// blood coin types something to spend on, so sacrificing an Elder or Mythic
+// duplicate isn't a dead end.
 const MEMORY_UPGRADE_LEVELS = [
   { level:1, cost:{ common:3 },    multiplier:1.15 },
   { level:2, cost:{ rare:3 },      multiplier:1.30 },
   { level:3, cost:{ epic:3 },      multiplier:1.50 },
   { level:4, cost:{ legendary:2 }, multiplier:1.75 },
   { level:5, cost:{ legendary:5 }, multiplier:2.00 },
+  { level:6, cost:{ elder:3 },     multiplier:2.35 },
+  { level:7, cost:{ mythic:2 },    multiplier:2.75 },
 ];
 
 // Creature Recall gets the same upgrade path as Memory Match (added 2026-07-23,
@@ -817,6 +830,8 @@ const RECALL_UPGRADE_LEVELS = [
   { level:3, cost:{ epic:3 },      multiplier:1.50 },
   { level:4, cost:{ legendary:2 }, multiplier:1.75 },
   { level:5, cost:{ legendary:5 }, multiplier:2.00 },
+  { level:6, cost:{ elder:3 },     multiplier:2.35 },
+  { level:7, cost:{ mythic:2 },    multiplier:2.75 },
 ];
 
 // Prestige milestone that unlocks the Celestial background (declared here,
@@ -847,6 +862,7 @@ const SETS = [
   { id:'ember',  name:'Ember & Ash',     icon:'🔥', blurb:'Warm to the touch, best from a distance.' },
   { id:'stone',  name:'Stonevale',       icon:'⛰️', blurb:'Slow, sturdy, older than they look.' },
   { id:'frost',  name:'Frostpeak',       icon:'❄️', blurb:'Only comfortable when it\'s cold out.' },
+  { id:'blood',  name:'Bloodmire',       icon:'🩸', blurb:'Best not to ask where the red comes from.' },
 ];
 
 const CREATURES = [
@@ -856,6 +872,8 @@ const CREATURES = [
   { id:'mossling', name:'Mossling', emoji:'🐿️', rarity:'common', set:'forest', flavor:'Naps so long that moss grows on its back.' },
   { id:'thistlehop', name:'Thistlehop', emoji:'🐇', rarity:'rare', set:'forest', flavor:'Leaves a trail of tiny purple flowers.' },
   { id:'oakenhorn', name:'Oakenhorn', emoji:'🦌', rarity:'epic', set:'forest', flavor:'Its antlers are old enough to have their own names.' },
+  { id:'elderroot', name:'Elderroot', emoji:'🌳', rarity:'elder', set:'forest', flavor:'Hasn\'t looked older in years it can no longer count.' },
+  { id:'owlume', name:'Owlume', emoji:'🦉', rarity:'mythic', set:'forest', flavor:'No one\'s ever caught it landing — only already perched.' },
 
   // Ocean Explorers 🌊
   { id:'bubblet', name:'Bubblet', emoji:'🫧', rarity:'common', set:'ocean', flavor:'Pops if startled, reforms a minute later, unbothered.' },
@@ -863,6 +881,8 @@ const CREATURES = [
   { id:'crestfin', name:'Crestfin', emoji:'🐠', rarity:'rare', set:'ocean', flavor:'Changes color to match whoever is watching it.' },
   { id:'coralwing', name:'Coralwing', emoji:'🐡', rarity:'rare', set:'ocean', flavor:'Puffs up twice its size when it gets shy.' },
   { id:'abysking', name:'Abysking', emoji:'🐙', rarity:'legendary', set:'ocean', flavor:'Rules a kingdom no submarine has ever found.' },
+  { id:'tidewarden', name:'Tidewarden', emoji:'🦀', rarity:'elder', set:'ocean', flavor:'Has patrolled the same reef since before the reef had a name.' },
+  { id:'voidmaw', name:'Voidmaw', emoji:'🐋', rarity:'mythic', set:'ocean', flavor:'The deep doesn\'t map itself past where it swims.' },
 
   // Sky Wanderers ☁️
   { id:'featherkit', name:'Featherkit', emoji:'🐦', rarity:'common', set:'sky', flavor:'Practices landing. Still working on it.' },
@@ -870,6 +890,8 @@ const CREATURES = [
   { id:'glimmermoth', name:'Glimmermoth', emoji:'🦋', rarity:'rare', set:'sky', flavor:'Its wings store starlight for cloudy nights.' },
   { id:'stormtail', name:'Stormtail', emoji:'🦊', rarity:'epic', set:'sky', flavor:'Leaves a trail of static electricity when it runs.' },
   { id:'starwyrm', name:'Starwyrm', emoji:'🐉', rarity:'legendary', set:'sky', flavor:'Said to be woven from the same thread as the sky.' },
+  { id:'cloudkeeper', name:'Cloudkeeper', emoji:'🦅', rarity:'elder', set:'sky', flavor:'Circles the same peak so slowly you\'d think it was still.' },
+  { id:'aurorix', name:'Aurorix', emoji:'🌠', rarity:'mythic', set:'sky', flavor:'The weather simply stops applying to it.' },
 
   // Ember & Ash 🔥
   { id:'cinderling', name:'Cinderling', emoji:'🕯️', rarity:'common', set:'ember', flavor:'Its flame burns low and steady, like a nightlight.' },
@@ -877,6 +899,8 @@ const CREATURES = [
   { id:'emberpup', name:'Emberpup', emoji:'🐕', rarity:'rare', set:'ember', flavor:'Sneezes sparks when excited. Very easily excited.' },
   { id:'magmawing', name:'Magmawing', emoji:'🦇', rarity:'rare', set:'ember', flavor:'Only flies at night, when it\'s easier to stay cool.' },
   { id:'infernoxis', name:'Infernoxis', emoji:'🦂', rarity:'epic', set:'ember', flavor:'Its sting doesn\'t hurt — it just leaves a nice tan.' },
+  { id:'salamere', name:'Salamere', emoji:'🦎', rarity:'elder', set:'ember', flavor:'Never seems to cool. Never seems to hurry, either.' },
+  { id:'cindrix', name:'Cindrix', emoji:'☄️', rarity:'mythic', set:'ember', flavor:'Nothing lit it. It was already burning when anyone noticed.' },
 
   // Stonevale ⛰️
   { id:'driftpebble', name:'Driftpebble', emoji:'🪨', rarity:'common', set:'stone', flavor:'A small stone spirit that rolls uphill for fun.' },
@@ -884,6 +908,8 @@ const CREATURES = [
   { id:'craghorn', name:'Craghorn', emoji:'🐐', rarity:'rare', set:'stone', flavor:'Can nap standing up on a ledge the width of a coin.' },
   { id:'boulderback', name:'Boulderback', emoji:'🦏', rarity:'rare', set:'stone', flavor:'Small pebbles collect on its back like a rock garden.' },
   { id:'graniteclaw', name:'Graniteclaw', emoji:'🦖', rarity:'epic', set:'stone', flavor:'Older than the mountain it lives on, and just as patient.' },
+  { id:'moraine', name:'Moraine', emoji:'🗿', rarity:'elder', set:'stone', flavor:'Has stood in the same spot long enough to be mistaken for the mountain.' },
+  { id:'aeonquill', name:'Aeonquill', emoji:'🦣', rarity:'mythic', set:'stone', flavor:'Older than the valley. Possibly older than the idea of valleys.' },
 
   // Frostpeak ❄️
   { id:'snowkit', name:'Snowkit', emoji:'🐧', rarity:'common', set:'frost', flavor:'Slides everywhere it can, walks only when it must.' },
@@ -891,6 +917,18 @@ const CREATURES = [
   { id:'icewisp', name:'Icewisp', emoji:'❄️', rarity:'common', set:'frost', flavor:'Melts a little in sunlight, then simply reforms at dusk.' },
   { id:'frostfang', name:'Frostfang', emoji:'🐺', rarity:'rare', set:'frost', flavor:'Howls carry further when the air is this cold.' },
   { id:'frostmane', name:'Frostmane', emoji:'🦁', rarity:'epic', set:'frost', flavor:'Its roar is silent, but frost creeps out for miles.' },
+  { id:'rimewarden', name:'Rimewarden', emoji:'🧊', rarity:'elder', set:'frost', flavor:'Doesn\'t shiver. Hasn\'t needed to in longer than anyone\'s tracked.' },
+  { id:'nyxfrost', name:'Nyxfrost', emoji:'💠', rarity:'mythic', set:'frost', flavor:'The frost doesn\'t follow it. It arrives first.' },
+
+  // Bloodmire 🩸 — the new set introduced alongside the Elder/Mythic tiers,
+  // the only set with a member at every rarity from Common to Mythic.
+  { id:'mireling', name:'Mireling', emoji:'🦟', rarity:'common', set:'blood', flavor:'Small, sticky, and always first to notice a cut.' },
+  { id:'scablet', name:'Scablet', emoji:'🐌', rarity:'common', set:'blood', flavor:'Leaves a red trail instead of silver. No one\'s asked why.' },
+  { id:'clotfang', name:'Clotfang', emoji:'🐀', rarity:'rare', set:'blood', flavor:'Bites first, apologizes never.' },
+  { id:'veinwraith', name:'Veinwraith', emoji:'🦴', rarity:'epic', set:'blood', flavor:'Wears old wounds like jewelry.' },
+  { id:'hemogorge', name:'Hemogorge', emoji:'🐗', rarity:'legendary', set:'blood', flavor:'Every scar on it belongs to something that isn\'t around anymore.' },
+  { id:'stillblood', name:'Stillblood', emoji:'🫗', rarity:'elder', set:'blood', flavor:'The bleeding stopped mattering to it a long time ago.' },
+  { id:'bloodsovereign', name:'Bloodsovereign', emoji:'🫀', rarity:'mythic', set:'blood', flavor:'No one\'s ever caught it rising. It simply arrives already standing over you.' },
 ];
 
 const SET_COMPLETION_BONUS = 250;
@@ -960,7 +998,7 @@ function defaultSave(){
     playerName: '',
     lastTick: Date.now(),
     completedSets: [],  // set ids already paid out
-    bloodCoins: { common:0, rare:0, epic:0, legendary:0 }, // from sacrificing duplicates
+    bloodCoins: { common:0, rare:0, epic:0, legendary:0, elder:0, mythic:0 }, // from sacrificing duplicates
     memoryUpgradeLevel: 0,       // Memory Match reward upgrade tier, bought with blood coins
     background: 'default',       // currently applied background theme id
     unlockedBackgrounds: ['default'], // background ids purchased with coins
@@ -1078,7 +1116,7 @@ function doPrestige(){
   state.ownedShiny = {}; // shinies are a variant of an owned creature — reset alongside the collection
   state.coins = defaultSave().coins;
   state.completedSets = [];
-  state.bloodCoins = { common:0, rare:0, epic:0, legendary:0 };
+  state.bloodCoins = { common:0, rare:0, epic:0, legendary:0, elder:0, mythic:0 };
   state.memoryUpgradeLevel = 0;
   state.recallUpgradeLevel = 0;
   state.unlockedMinigames = ['memory'];
@@ -1503,7 +1541,7 @@ function updatePullUI(){
   const pool = creaturePoolForPull();
   const availableRarities = Array.from(new Set(pool.map(c => c.rarity)));
   const total = availableRarities.reduce((s, r) => s + RARITIES[r].weight, 0);
-  const order = ['common','rare','epic','legendary'];
+  const order = ['common','rare','epic','legendary','elder','mythic'];
   const oddsStr = order
     .filter(r => availableRarities.includes(r))
     .map(r => `${RARITIES[r].label} ${Math.round(RARITIES[r].weight / total * 100)}%`)
@@ -1562,11 +1600,16 @@ function playChime(notes, opts){
   notes.forEach(([freq, offset, dur]) => playTone(freq, offset, dur, opts));
 }
 
+// Elder's chime is deliberately calmer/plainer than Legendary's fanfare —
+// two long, warm, low notes — even though Elder is the rarer pull. The most
+// elaborate chime is saved for Mythic, matching the naming restraint above.
 const RARITY_SFX = {
   common:    [[392, 0, 0.16]],
   rare:      [[440, 0, 0.14], [554, 0.08, 0.18]],
   epic:      [[523, 0, 0.14], [659, 0.09, 0.14], [784, 0.18, 0.24]],
   legendary: [[523, 0, 0.16], [659, 0.1, 0.16], [784, 0.2, 0.16], [1047, 0.3, 0.32]],
+  elder:     [[330, 0, 0.34], [415, 0.18, 0.4]],
+  mythic:    [[523, 0, 0.14], [659, 0.08, 0.14], [784, 0.16, 0.14], [988, 0.24, 0.16], [1319, 0.34, 0.2], [1760, 0.46, 0.42]],
 };
 const SHINY_SFX = [[1568, 0.05, 0.12], [1976, 0.15, 0.12], [2349, 0.25, 0.22]];
 
@@ -1693,7 +1736,7 @@ function showSingleReveal({creature, wasOwned, pity, shiny}){
   document.getElementById('closeRevealBtn').addEventListener('click', ()=> revealModal.classList.add('hidden'));
 }
 
-const RARITY_RANK = ['common', 'rare', 'epic', 'legendary'];
+const RARITY_RANK = ['common', 'rare', 'epic', 'legendary', 'elder', 'mythic'];
 
 function showMultiReveal(results){
   // One combined chime for the whole batch, pitched to the best rarity
@@ -1879,7 +1922,7 @@ function sacrificeOneDuplicate(id){
 }
 
 function renderBloodCoins(){
-  const order = ['common','rare','epic','legendary'];
+  const order = ['common','rare','epic','legendary','elder','mythic'];
   const html = order.map(r => `<div class="blood-chip">🩸 ${RARITIES[r].label} <b>${state.bloodCoins[r]||0}</b></div>`).join('');
   ['bloodCoinStripPull','bloodCoinStripCollection','bloodCoinStripRecall'].forEach(id=>{
     const el = document.getElementById(id);
@@ -2475,13 +2518,17 @@ const ACHIEVEMENTS = [
     check: () => state.totalPulls >= 1 },
   { id:'first_legendary',  icon:'🌟', name:'Legendary!',       desc:'Pull your first Legendary character.',
     check: () => CREATURES.some(c => c.rarity==='legendary' && (state.owned[c.id]||0) > 0) },
+  { id:'first_elder',      icon:'🕰️', name:'Old Timer',        desc:'Pull your first Elder character.',
+    check: () => CREATURES.some(c => c.rarity==='elder' && (state.owned[c.id]||0) > 0) },
+  { id:'first_mythic',     icon:'🌌', name:'Mythic!',          desc:'Pull your first Mythic character.',
+    check: () => CREATURES.some(c => c.rarity==='mythic' && (state.owned[c.id]||0) > 0) },
   { id:'shiny_hunter',     icon:'💎', name:'Shiny Hunter',     desc:'Pull your first ✨ Shiny character.',
     check: () => Object.values(state.ownedShiny||{}).some(n => n > 0) },
   { id:'first_set',        icon:'🧩', name:'Set Complete',     desc:'Complete your first themed set.',
     check: () => state.completedSets.length >= 1 },
-  { id:'completionist',    icon:'🏆', name:'Completionist',    desc:'Complete all 6 themed sets.',
+  { id:'completionist',    icon:'🏆', name:'Completionist',    desc:`Complete all ${SETS.length} themed sets.`,
     check: () => state.completedSets.length >= SETS.length },
-  { id:'full_house',       icon:'📖', name:'Full House',       desc:'Own all 30 characters at once.',
+  { id:'full_house',       icon:'📖', name:'Full House',       desc:`Own all ${CREATURES.length} characters at once.`,
     check: () => ownedCreatureCount() >= CREATURES.length },
   { id:'first_prestige',   icon:'🌠', name:'Reborn',           desc:'Reach Prestige 1.',
     check: () => (state.prestigeLevel||0) >= 1 },
