@@ -40,6 +40,26 @@
   body[data-bg="aurora"]{ background-image:radial-gradient(circle at 20% 10%, #2a1e4d 0%, var(--bg-2) 55%, #0f0a1f 100%); }
   body[data-bg="celestial"]{ --bg-2:#0d0a1a; --accent:#ffcf5c; --accent-2:#8f6bff; }
   body[data-bg="celestial"]{ background-image:radial-gradient(circle at 20% 10%, #4a3580 0%, var(--bg-2) 45%, #1a1330 100%), radial-gradient(circle at 80% 85%, rgba(255,207,92,.25) 0%, transparent 40%); }
+  /* Per a board suggestion (2026-07-23): Celestial constantly shifts color,
+     staying in a yellow/gold range. Done via a fixed ::before overlay (not a
+     filter on body itself, which would also recolor foreground text/icons) —
+     the overlay sits behind normal content (z-index:-1) and in front of
+     body's own background, animating a narrow hue-rotate band so the glow
+     never drifts out of gold/amber into blue or green. */
+  body[data-bg="celestial"]::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    z-index:-1;
+    pointer-events:none;
+    background-image:radial-gradient(circle at 25% 15%, rgba(255,223,126,.4) 0%, transparent 45%), radial-gradient(circle at 75% 80%, rgba(255,183,0,.32) 0%, transparent 50%);
+    animation: celestialShift 9s ease-in-out infinite alternate;
+  }
+  @keyframes celestialShift{
+    0%{ filter:hue-rotate(-10deg) brightness(1); }
+    50%{ filter:hue-rotate(0deg) brightness(1.15); }
+    100%{ filter:hue-rotate(10deg) brightness(1); }
+  }
   *{box-sizing:border-box;}
   html,body{height:100%;}
   body{
@@ -548,6 +568,7 @@
               <div id="prestigeReqCoins">❌ Have 5,000 🪙 banked (0/5,000)</div>
             </div>
             <div class="prestige-milestones">🌟 P1: Blood Sacrifice · P3: exclusive Celestial background · P5: −20% pull costs, forever</div>
+            <div class="prestige-milestones" id="prestigeShinyLine">✨ Shiny chance rises +0.5% per Prestige level (capped at 10%) — currently 2%</div>
           </div>
           <button class="btn-accent prestige-btn" id="prestigeNowBtn" disabled>Prestige now</button>
         </div>
@@ -844,8 +865,16 @@ const PITY_THRESHOLD = 50;
 // Shiny variants: a small independent chance on every pull for a sparkly
 // version of whatever creature you got — purely a rare cosmetic/value bonus
 // layered on top of the normal pull, chased even after the collection is full.
+// Per a board suggestion (2026-07-23), the chance also ticks up a little with
+// every Prestige level reached, capped so it stays a chase, not a given.
 const SHINY_CHANCE = 0.02;
+const SHINY_CHANCE_PER_PRESTIGE_LEVEL = 0.005;
+const SHINY_CHANCE_CAP = 0.10;
 const SHINY_SELL_MULTIPLIER = 3;
+
+function currentShinyChance(){
+  return Math.min(SHINY_CHANCE_CAP, SHINY_CHANCE + (state.prestigeLevel||0) * SHINY_CHANCE_PER_PRESTIGE_LEVEL);
+}
 
 // Daily login streak — reward cycles every 7 days but the streak counter
 // itself keeps climbing (tracked for the Streak Keeper achievement).
@@ -1040,6 +1069,12 @@ function renderPrestigePanel(){
   reqCoins.innerHTML = `${ok2 ? '✅' : '❌'} Have ${PRESTIGE_REQUIRED_COINS.toLocaleString()} 🪙 banked (${Math.floor(state.coins).toLocaleString()}/${PRESTIGE_REQUIRED_COINS.toLocaleString()})`;
   levelBadge.textContent = `Prestige ${state.prestigeLevel||0}`;
   btn.disabled = !(ok1 && ok2);
+
+  const shinyLine = document.getElementById('prestigeShinyLine');
+  if(shinyLine){
+    const pct = (currentShinyChance() * 100).toFixed(1).replace(/\.0$/, '');
+    shinyLine.textContent = `✨ Shiny chance rises +0.5% per Prestige level (capped at 10%) — currently ${pct}%`;
+  }
 }
 
 function openPrestigeModal(){
@@ -1067,6 +1102,12 @@ const MEMORY_PAIRS = 6;
 const MEMORY_BASE_REWARD = 200;
 const MEMORY_MIN_REWARD = 60;
 const MEMORY_MOVE_PENALTY = 10;
+// Memory Whiz achievement threshold. Originally required the mathematically
+// perfect MEMORY_PAIRS (6) moves — meaning literally zero mismatched flips
+// across the whole board — which is only realistic via rote memorization or
+// near-impossible luck. Loosened (2026-07-23, family feedback: too rare to
+// ever come up) to a still-skillful-but-actually-attainable buffer.
+const MEMORY_WHIZ_MAX_MOVES = MEMORY_PAIRS + 3;
 
 let memory = null; // { cards, flipped, matched, moves, startedAt, timerId, locked }
 
@@ -1161,7 +1202,7 @@ function finishMemoryGame(){
   const timeBonus = elapsedSec <= 15 ? 30 : elapsedSec <= 30 ? 15 : 0;
   const reward = Math.round((moveReward + timeBonus) * memoryRewardMultiplier());
   addCoins(reward);
-  if(memory.moves <= MEMORY_PAIRS) state.hasPerfectMemoryMatch = true;
+  if(memory.moves <= MEMORY_WHIZ_MAX_MOVES) state.hasPerfectMemoryMatch = true;
   persist();
   checkAchievements();
   updateMemoryStats();
@@ -1362,7 +1403,7 @@ function pullOne(pool){
   // Shiny: a small independent chance to also mark this copy as shiny —
   // shinies still count toward owning the creature (state.owned), this just
   // layers an extra, rarer flag + sell premium on top.
-  const shiny = Math.random() < SHINY_CHANCE;
+  const shiny = Math.random() < currentShinyChance();
   if(shiny) state.ownedShiny[creature.id] = (state.ownedShiny[creature.id]||0) + 1;
 
   // Duplicates are no longer auto-converted to coins — they join the collection as
@@ -2214,7 +2255,7 @@ const ACHIEVEMENTS = [
     check: () => (state.prestigeLevel||0) >= 1 },
   { id:'prestige_master',  icon:'👑', name:'Prestige Master',  desc:'Reach Prestige 5.',
     check: () => (state.prestigeLevel||0) >= 5 },
-  { id:'memory_perfect',   icon:'🧠', name:'Memory Whiz',      desc:'Clear Memory Match in a perfect 6 moves.',
+  { id:'memory_perfect',   icon:'🧠', name:'Memory Whiz',      desc:'Clear Memory Match in 9 moves or fewer.',
     check: () => !!state.hasPerfectMemoryMatch },
   { id:'recall_flawless',  icon:'🎯', name:'Flawless Recall',  desc:'Clear all 10 rounds of Creature Recall.',
     check: () => !!state.hasRecallFlawless },
