@@ -152,6 +152,8 @@
   .pull-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
   .odds{font-size:12px;color:var(--text-dim);text-align:center;max-width:420px;line-height:1.6;}
   .pity-line{color:var(--gold);font-weight:700;}
+  .rarity-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 14px;margin-top:8px;font-size:11px;color:var(--text-dim);}
+  .rarity-legend .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle;}
   .clicker-row{display:flex;gap:10px;justify-content:center;margin-top:6px;flex-wrap:wrap;}
 
   /* SET PICKER (themed pulls) */
@@ -529,6 +531,7 @@
         Play Memory Match for coins — fewer moves and a faster time earn more.<br>
         <span id="pityLine" class="pity-line"></span>
       </div>
+      <div class="rarity-legend" id="rarityLegend"></div>
     </div>
   </div>
 
@@ -648,8 +651,8 @@
 
         <div class="settings-row">
           <div>
-            <b>🔊 Sound effects</b>
-            <div class="desc">Little chimes for pulls, shinies, achievements, prestige, and daily bonuses — all synthesized, no audio files. On by default; flip this off anytime, it's purely a feel thing.</div>
+            <b>🔊 Sound</b>
+            <div class="desc">Little chimes for pulls, shinies, achievements, prestige, and daily bonuses, plus a soft background music loop. On by default; flip this off anytime, it's purely a feel thing.</div>
           </div>
           <label class="sound-toggle">
             <input type="checkbox" id="soundToggleInput" checked />
@@ -779,6 +782,12 @@
 <div class="toast" id="toast"></div>
 
 <input type="file" id="importFileInput" accept="application/json" class="hidden" />
+
+<!-- BACKGROUND MUSIC — "Dark Mall" (onlinesequencer.net/5384206), added
+     2026-07-23 at the user's request as a soft ambient loop. Kept quiet and
+     looping; shares the existing "Sound effects" Settings toggle rather than
+     getting its own row, so it doesn't add another control to the UI. -->
+<audio id="bgMusicPlayer" src="dark-mall.mp3" loop preload="auto"></audio>
 
 <script>
 /* =========================================================
@@ -1545,6 +1554,19 @@ function renderSetPicker(){
   });
 }
 
+// A quiet, non-interactive color key for the 6 rarity tiers — added instead
+// of a dedicated legend panel/button so it doesn't add another control to an
+// already busy screen. Static once rendered (colors/labels don't change at
+// runtime), driven generically off RARITY_RANK so it never needs a manual
+// update if another tier is added later.
+function renderRarityLegend(){
+  const el = document.getElementById('rarityLegend');
+  if(!el) return;
+  el.innerHTML = RARITY_RANK.map(r =>
+    `<span><span class="dot" style="background:${RARITIES[r].color};"></span>${RARITIES[r].label}</span>`
+  ).join('');
+}
+
 function updatePullUI(){
   const set = SETS.find(s => s.id === selectedSetId);
   document.getElementById('pullTargetLabel').innerHTML = set
@@ -1576,12 +1598,17 @@ function updatePullUI(){
 function wait(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
 
 /* ---------- SOUND EFFECTS ----------
-   Synthesized via the Web Audio API — no external audio files, so the game
-   stays a single self-contained HTML document. The AudioContext is created
-   lazily on first use (every sfx* call happens inside a click handler, so
-   this always satisfies browsers' autoplay-requires-a-gesture rule without
-   needing a separate "enable sound" prompt). Muted entirely via
-   state.soundEnabled, toggled in Settings. */
+   Synthesized via the Web Audio API — no external audio files, so the pull/
+   achievement/prestige chimes keep the game logic in a single self-contained
+   HTML document. The AudioContext is created lazily on first use (every sfx*
+   call happens inside a click handler, so this always satisfies browsers'
+   autoplay-requires-a-gesture rule without needing a separate "enable sound"
+   prompt). Muted entirely via state.soundEnabled, toggled in Settings.
+   Background music (see initBgMusic() below) is the one deliberate exception
+   to "no external audio files" — a real music loop can't be synthesized the
+   way a short chime can, so it ships as a small separate .mp3 next to
+   index.html rather than being inlined as base64 (which would roughly double
+   its size and bloat the HTML source itself). */
 let audioCtx = null;
 function getAudioCtx(){
   const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -1613,6 +1640,40 @@ function playTone(freq, startOffset, duration, opts){
 function playChime(notes, opts){
   if(!state.soundEnabled) return;
   notes.forEach(([freq, offset, dur]) => playTone(freq, offset, dur, opts));
+}
+
+/* ---------- BACKGROUND MUSIC ----------
+   A soft, looping ambient track ("Dark Mall") that plays quietly under the
+   whole app. Deliberately shares state.soundEnabled with the sfx chimes
+   above rather than getting its own Settings toggle — one on/off switch for
+   "sound in this game" is simpler than two, and Settings already has enough
+   rows. Volume is kept low (BG_MUSIC_VOLUME) since this is meant to sit
+   under the game, not compete with it. */
+const BG_MUSIC_VOLUME = 0.16;
+let bgMusicStarted = false;
+function getBgMusicEl(){ return document.getElementById('bgMusicPlayer'); }
+
+function syncBgMusicToSoundSetting(){
+  const el = getBgMusicEl();
+  if(!el) return;
+  el.muted = !state.soundEnabled;
+}
+
+// Browsers block audio with sound until a real user gesture happens, so
+// playback only actually starts on the first click anywhere on the page —
+// mirrors the same gesture-gated pattern getAudioCtx() already relies on
+// for the synthesized chimes, just via a one-time listener instead of a
+// lazily-created AudioContext.
+function initBgMusic(){
+  const el = getBgMusicEl();
+  if(!el) return;
+  el.volume = BG_MUSIC_VOLUME;
+  syncBgMusicToSoundSetting();
+  document.addEventListener('click', function startBgMusicOnGesture(){
+    if(bgMusicStarted) return;
+    bgMusicStarted = true;
+    el.play().catch(()=>{ /* ignore — e.g. user already muted at the OS level */ });
+  }, { once: true });
 }
 
 // Elder's chime is deliberately calmer/plainer than Legendary's fanfare —
@@ -2170,6 +2231,7 @@ soundToggleInput.checked = state.soundEnabled !== false;
 soundToggleInput.addEventListener('change', ()=>{
   state.soundEnabled = soundToggleInput.checked;
   persist();
+  syncBgMusicToSoundSetting();
   if(state.soundEnabled) playChime([[659, 0, 0.12], [880, 0.08, 0.14]], { type:'triangle', volume:0.14 });
 });
 
@@ -2726,6 +2788,9 @@ function init(){
   setInterval(()=>{
     if(Date.now() - lastLeaderboardPush >= LEADERBOARD_PUSH_INTERVAL_MS) pushPlayerStats();
   }, LEADERBOARD_PUSH_INTERVAL_MS);
+
+  initBgMusic();
+  renderRarityLegend();
 }
 init();
 </script>
