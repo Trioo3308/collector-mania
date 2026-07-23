@@ -598,7 +598,7 @@
             <b>🌟 Prestige <span class="prestige-level-badge" id="prestigeLevelBadge">Prestige 0</span></b>
             <div class="desc">Reset your run to permanently unlock Blood Sacrifice and gain +10% coin income per level, stacking forever. Your collection, coins, blood coins, and minigame unlocks all reset — but your prestige level, lifetime stats, and backgrounds are kept.</div>
             <div class="prestige-reqs">
-              <div id="prestigeReqCollection">❌ Own all 49 characters (0/49)</div>
+              <div id="prestigeReqCollection">❌ Own all 42 characters (0/42)</div>
               <div id="prestigeReqCoins">❌ Have 5,000 🪙 banked (0/5,000)</div>
             </div>
             <div class="prestige-milestones">🌟 P1: Blood Sacrifice · P3: exclusive Celestial background · P5: −20% pull costs, forever</div>
@@ -921,7 +921,8 @@ const CREATURES = [
   { id:'nyxfrost', name:'Nyxfrost', emoji:'💠', rarity:'mythic', set:'frost', flavor:'The frost doesn\'t follow it. It arrives first.' },
 
   // Bloodmire 🩸 — the new set introduced alongside the Elder/Mythic tiers,
-  // the only set with a member at every rarity from Common to Mythic.
+  // with a member at every rarity from Common to Mythic (Sky Wanderers,
+  // above, is the only other set that also covers all 6 tiers).
   { id:'mireling', name:'Mireling', emoji:'🦟', rarity:'common', set:'blood', flavor:'Small, sticky, and always first to notice a cut.' },
   { id:'scablet', name:'Scablet', emoji:'🐌', rarity:'common', set:'blood', flavor:'Leaves a red trail instead of silver. No one\'s asked why.' },
   { id:'clotfang', name:'Clotfang', emoji:'🐀', rarity:'rare', set:'blood', flavor:'Bites first, apologizes never.' },
@@ -941,7 +942,21 @@ const DEVICE_KEY = 'collectorMania_deviceId';
 // Suggested by Th3C0olK11d: a Prestige reset that gates Blood Sacrifice behind
 // a permanent milestone and grants a permanent coin-gain bonus per level.
 // Cost per the follow-up clarification: own the whole collection + a chunk of coins.
-const PRESTIGE_REQUIRED_COLLECTION = CREATURES.length; // own every character
+//
+// Deliberately excludes Mythic creatures as of the Bloodmire/Elder/Mythic update
+// (2026-07-23) — a judgment call, not something the original suggestion covered.
+// Requiring literally every creature (CREATURES.length, as this used to read)
+// would mean collecting all 7 Mythics — each a specific 1-in-700 pull with zero
+// pity protection — before a single Prestige. Rough math: expected pulls to
+// collect all 7 unique Mythics alone is in the ~1,800-pull range (a coupon-
+// collector problem at Mythic's 1% pull weight), which would make first Prestige
+// feel effectively unreachable rather than a big-but-fair milestone. Requiring
+// every creature except Mythics (still needs all 7 Elders, ~600 pulls'
+// worth on their own) keeps Prestige a genuine grind without moving the goalpost
+// into "practically impossible" territory. Mythics stay a pure post-Prestige/
+// endgame chase item instead. Worth revisiting with real family feedback once
+// someone's actually gone for it.
+const PRESTIGE_REQUIRED_COLLECTION = CREATURES.filter(c => c.rarity !== 'mythic').length; // own every character except Mythics
 const PRESTIGE_REQUIRED_COINS = 5000;                  // and bank this many coins
 const PRESTIGE_COIN_BONUS_PER_LEVEL = 0.10;            // +10% coin gain per prestige level, stacking
 // Prestige milestone unlocks — beyond level 1's Blood Sacrifice gate, later
@@ -1464,8 +1479,8 @@ document.getElementById('unlockRecallBtn').addEventListener('click', unlockRecal
 /* ---------- PULLING ---------- */
 const PULL_COST = { all: { single:50, ten:450 }, themed: { single:90, ten:800 } };
 
-// null = pull from the full 30-creature pool. A set id = themed pull, scoped
-// to just that set's 5 creatures (rarity odds renormalized over whatever
+// null = pull from the full 49-creature pool. A set id = themed pull, scoped
+// to just that set's 7 creatures (rarity odds renormalized over whatever
 // rarities that set actually has).
 let selectedSetId = null;
 
