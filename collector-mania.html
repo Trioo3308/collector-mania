@@ -2659,6 +2659,7 @@ function pushPlayerStats(){
     coins: Math.floor(state.coins || 0),
     bloodCoins: bloodCoinsTotal(),
     prestigeLevel: state.prestigeLevel || 0,
+    totalPulls: state.totalPulls || 0,
     showcaseId,
     showcaseShiny,
     updatedAt: Date.now(),
@@ -2697,6 +2698,7 @@ function renderLeaderboard(list){
         <span>🌟 <b>${p.prestigeLevel||0}</b></span>
         <span>🪙 <b>${(p.coins||0).toLocaleString()}</b></span>
         <span>🩸 <b>${(p.bloodCoins||0).toLocaleString()}</b></span>
+        <span title="Total pulls">🎲 <b>${(p.totalPulls||0).toLocaleString()}</b></span>
       </div>
     </div>
   `;
