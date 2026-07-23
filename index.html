@@ -200,6 +200,18 @@
   .memory-result{margin-top:16px;font-size:14px;line-height:1.6;}
   .memory-result .reward{font-size:20px;font-weight:800;color:var(--gold);margin:4px 0 12px;}
 
+  /* CREATURE RECALL */
+  .recall-grid{grid-template-columns:repeat(3,1fr);}
+  .memory-cell.recall-active{
+    background:var(--accent);border-color:var(--accent-2);transform:scale(1.06);
+    box-shadow:0 0 18px rgba(143,107,255,.6);
+  }
+  .minigame-unlock{
+    background:var(--panel-2);border:1px dashed var(--line);border-radius:12px;
+    padding:14px 16px;margin-top:10px;text-align:left;max-width:420px;
+  }
+  .unlock-desc{font-size:13px;margin-bottom:10px;line-height:1.5;}
+
   /* COLLECTION */
   .collection-stats{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
   .stat-chip{background:var(--panel-2);border-radius:10px;padding:8px 14px;font-size:12px;color:var(--text-dim);}
@@ -351,6 +363,11 @@
       </div>
       <div class="clicker-row">
         <button class="btn-gold" id="playMemoryBtn">🧠 Play Memory Match for coins</button>
+        <button class="btn-gold hidden" id="playRecallBtn">🎯 Play Creature Recall for coins</button>
+      </div>
+      <div class="minigame-unlock hidden" id="recallLockCard">
+        <div class="unlock-desc">🔒 <b>Creature Recall</b> — watch the sequence of creatures light up, then repeat it back in order. Gets harder each round, pays out for how far you get. Unlock it permanently by sacrificing duplicates for blood coins.</div>
+        <button class="upgrade-buy-btn" id="unlockRecallBtn">Unlock (5 🩸Common + 5 🩸Rare + 3 🩸Epic + 1 🩸Legendary)</button>
       </div>
       <div class="odds">
         <span id="oddsLine">Common 55% · Rare 30% · Epic 12% · Legendary 3%</span> — duplicates join your collection as extra copies you can sell anytime.
@@ -482,6 +499,25 @@
     </div>
     <div class="memory-grid" id="memoryGrid"></div>
     <div class="memory-result hidden" id="memoryResult"></div>
+  </div>
+</div>
+
+<!-- CREATURE RECALL MODAL -->
+<div class="modal-backdrop hidden" id="recallModal">
+  <div class="memory-card">
+    <div class="memory-header">
+      <div>
+        <div class="memory-title">🎯 Creature Recall</div>
+        <div class="memory-sub">Watch the sequence, then repeat it back in order. Go as far as you can.</div>
+      </div>
+      <button class="btn-ghost" id="recallCloseBtn">✕</button>
+    </div>
+    <div class="memory-stats">
+      <div class="stat-chip"><b id="recallRound">1</b>Round</div>
+      <div class="stat-chip"><b id="recallStatus">Watch...</b>Status</div>
+    </div>
+    <div class="memory-grid recall-grid" id="recallGrid"></div>
+    <div class="memory-result hidden" id="recallResult"></div>
   </div>
 </div>
 
@@ -618,6 +654,7 @@ function defaultSave(){
     memoryUpgradeLevel: 0,       // Memory Match reward upgrade tier, bought with blood coins
     background: 'default',       // currently applied background theme id
     unlockedBackgrounds: ['default'], // background ids purchased with coins
+    unlockedMinigames: ['memory'], // minigame ids unlocked with blood coins ('memory' always free)
   };
 }
 
@@ -633,6 +670,8 @@ function migrateSave(data){
   merged.background = (data && typeof data.background === 'string') ? data.background : 'default';
   merged.unlockedBackgrounds = Array.isArray(data && data.unlockedBackgrounds) ? data.unlockedBackgrounds.slice() : ['default'];
   if(!merged.unlockedBackgrounds.includes('default')) merged.unlockedBackgrounds.push('default');
+  merged.unlockedMinigames = Array.isArray(data && data.unlockedMinigames) ? data.unlockedMinigames.slice() : ['memory'];
+  if(!merged.unlockedMinigames.includes('memory')) merged.unlockedMinigames.push('memory');
   merged.version = SAVE_VERSION;
   return merged;
 }
@@ -809,6 +848,140 @@ document.getElementById('memoryCloseBtn').addEventListener('click', ()=>{
   if(memory && memory.timerId) clearInterval(memory.timerId);
   memoryModal.classList.add('hidden');
 });
+
+/* ---------- CREATURE RECALL MINIGAME (unlocked with blood coins) ---------- */
+// A second minigame, per Th3C0olK11d's suggestion that blood coins should be
+// able to "buy new minigames" — a Simon-says style sequence memory game,
+// distinct from Memory Match's pair-matching. Watch a growing sequence of
+// creature tiles light up, then repeat it back; one wrong tap ends the run.
+const RECALL_TILE_COUNT = 6;
+const RECALL_MAX_ROUNDS = 10;
+const RECALL_FLASH_MS = 500;
+const RECALL_GAP_MS = 250;
+const RECALL_UNLOCK_COST = { common:5, rare:5, epic:3, legendary:1 };
+
+let recall = null; // { tiles, sequence, playerStep, round, showing }
+
+const recallModal = document.getElementById('recallModal');
+const recallGrid = document.getElementById('recallGrid');
+const recallResult = document.getElementById('recallResult');
+
+function startRecallGame(){
+  const tiles = shuffle(CREATURES).slice(0, RECALL_TILE_COUNT);
+  recall = { tiles, sequence: [], playerStep: 0, round: 0, showing: true };
+  recallResult.classList.add('hidden');
+  recallResult.innerHTML = '';
+  recallModal.classList.remove('hidden');
+  nextRecallRound();
+}
+
+function nextRecallRound(){
+  recall.round++;
+  recall.playerStep = 0;
+  recall.sequence.push(Math.floor(Math.random() * RECALL_TILE_COUNT));
+  renderRecallGrid();
+  updateRecallStats('Watch...');
+  playRecallSequence();
+}
+
+function renderRecallGrid(activeIndex){
+  recallGrid.innerHTML = recall.tiles.map((c, i)=>
+    `<div class="memory-cell ${activeIndex===i?'recall-active':''}" data-index="${i}">${c.emoji}</div>`
+  ).join('');
+  recallGrid.querySelectorAll('.memory-cell').forEach(cell=>{
+    cell.addEventListener('click', ()=> onRecallTileClick(parseInt(cell.dataset.index, 10)));
+  });
+}
+
+function updateRecallStats(status){
+  document.getElementById('recallRound').textContent = recall.round;
+  document.getElementById('recallStatus').textContent = status;
+}
+
+async function playRecallSequence(){
+  recall.showing = true;
+  await wait(400);
+  for(const idx of recall.sequence){
+    renderRecallGrid(idx);
+    await wait(RECALL_FLASH_MS);
+    renderRecallGrid();
+    await wait(RECALL_GAP_MS);
+  }
+  recall.showing = false;
+  updateRecallStats('Your turn!');
+}
+
+function onRecallTileClick(i){
+  if(!recall || recall.showing) return;
+  const expected = recall.sequence[recall.playerStep];
+  if(i !== expected){
+    finishRecallGame(false);
+    return;
+  }
+  recall.playerStep++;
+  if(recall.playerStep === recall.sequence.length){
+    if(recall.round >= RECALL_MAX_ROUNDS){
+      finishRecallGame(true);
+    }else{
+      updateRecallStats('Nice! Next round...');
+      setTimeout(nextRecallRound, 700);
+    }
+  }
+}
+
+// Escalating per-round reward — surviving further pays disproportionately
+// more, so a near-perfect run is worth chasing rather than bailing early.
+function recallReward(roundsCompleted){
+  let total = 0;
+  for(let r = 1; r <= roundsCompleted; r++) total += 20 + r * 10;
+  return total;
+}
+
+function finishRecallGame(cleared){
+  const roundsCompleted = Math.max(0, cleared ? recall.round : recall.round - 1);
+  const reward = recallReward(roundsCompleted);
+  if(reward > 0) addCoins(reward);
+  persist();
+  updateRecallStats(cleared ? 'Perfect run!' : 'Missed it!');
+  recallResult.classList.remove('hidden');
+  recallResult.innerHTML = `
+    ${cleared ? `Cleared all <b>${RECALL_MAX_ROUNDS}</b> rounds — flawless!` : `Made it to round <b>${roundsCompleted}</b> before missing.`}
+    <div class="reward">+${reward} 🪙</div>
+    <button class="btn-accent" id="recallPlayAgainBtn">Play again</button>
+  `;
+  document.getElementById('recallPlayAgainBtn').addEventListener('click', startRecallGame);
+}
+
+document.getElementById('playRecallBtn').addEventListener('click', startRecallGame);
+document.getElementById('recallCloseBtn').addEventListener('click', ()=>{
+  recallModal.classList.add('hidden');
+});
+
+function canAffordRecallUnlock(){
+  return Object.entries(RECALL_UNLOCK_COST).every(([r,a]) => (state.bloodCoins[r]||0) >= a);
+}
+
+function renderMinigameUnlocks(){
+  const unlocked = state.unlockedMinigames.includes('recall');
+  document.getElementById('playRecallBtn').classList.toggle('hidden', !unlocked);
+  document.getElementById('recallLockCard').classList.toggle('hidden', unlocked);
+  if(!unlocked){
+    document.getElementById('unlockRecallBtn').disabled = !canAffordRecallUnlock();
+  }
+}
+
+function unlockRecall(){
+  if(state.unlockedMinigames.includes('recall')) return;
+  if(!canAffordRecallUnlock()) return toast("Not enough blood coins to unlock Creature Recall yet.");
+  Object.entries(RECALL_UNLOCK_COST).forEach(([r,a]) => { state.bloodCoins[r] -= a; });
+  state.unlockedMinigames.push('recall');
+  persist();
+  renderBloodCoins();
+  renderMinigameUnlocks();
+  toast("Unlocked Creature Recall! 🎯");
+}
+
+document.getElementById('unlockRecallBtn').addEventListener('click', unlockRecall);
 
 /* ---------- PULLING ---------- */
 const PULL_COST = { all: { single:50, ten:450 }, themed: { single:90, ten:800 } };
@@ -1106,6 +1279,7 @@ function sacrificeOneDuplicate(id){
   persist();
   renderCollection();
   renderUpgradePanel();
+  renderMinigameUnlocks();
   toast(`Sacrificed a duplicate ${creature.name} for +${value} 🩸 ${RARITIES[creature.rarity].label} blood coin${value===1?'':'s'}`);
 }
 
@@ -1515,6 +1689,7 @@ function init(){
   renderSetPicker();
   updatePullUI();
   renderUpgradePanel();
+  renderMinigameUnlocks();
   applyBackground(state.background);
   renderBgShop();
   renderSuggestions(getLocalSuggestions());
