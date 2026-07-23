@@ -366,6 +366,32 @@
   .bg-swatch .bg-name{font-size:12px;font-weight:700;}
   .bg-swatch .bg-price{font-size:11px;color:var(--text-dim);margin-top:2px;}
 
+  /* PRESTIGE SHOP */
+  .prestige-shop{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:10px;}
+  .banner-swatch{
+    border-radius:12px;padding:12px;text-align:center;border:2px solid var(--line);cursor:pointer;
+    background:var(--panel-2);transition:transform .15s;
+  }
+  .banner-swatch:hover{transform:translateY(-2px);}
+  .banner-swatch.active{border-color:var(--accent);}
+  .banner-swatch.locked{opacity:.55;}
+  .banner-swatch .banner-preview{height:36px;border-radius:8px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--panel);}
+  .banner-swatch .banner-name{font-size:12px;font-weight:700;}
+  .banner-swatch .banner-price{font-size:11px;color:var(--text-dim);margin-top:2px;}
+
+  /* Leaderboard banner visuals — applied to .leaderboard-row via BANNERS'
+     rowClass for strip/frame types; badge types render an icon instead
+     (see .leaderboard-badge below and renderLeaderboard()). */
+  .leaderboard-row.banner-strip-sunrise{background:linear-gradient(135deg,rgba(255,151,92,.35),rgba(255,92,151,.18));}
+  .leaderboard-row.banner-strip-ocean{background:linear-gradient(135deg,rgba(92,180,255,.32),rgba(92,92,255,.16));}
+  .leaderboard-row.banner-strip-inferno{background:linear-gradient(135deg,rgba(255,92,92,.35),rgba(255,180,60,.2));}
+  .leaderboard-row.banner-frame-gold{border-color:#ffcf5c;box-shadow:0 0 10px rgba(255,207,92,.35);}
+  .leaderboard-row.banner-frame-prism{border-color:#ff9ce6;box-shadow:0 0 10px rgba(255,156,230,.4);animation:prismShift 5s linear infinite;}
+  .leaderboard-row.banner-frame-void{border-color:#8f6bff;box-shadow:0 0 10px rgba(143,107,255,.5);animation:voidPulse 2.4s ease-in-out infinite;}
+  @keyframes prismShift{0%{filter:hue-rotate(0deg);}100%{filter:hue-rotate(360deg);}}
+  @keyframes voidPulse{0%,100%{box-shadow:0 0 8px rgba(143,107,255,.35);}50%{box-shadow:0 0 16px rgba(143,107,255,.75);}}
+  .leaderboard-badge{font-size:16px;flex-shrink:0;}
+
   /* SUGGESTIONS */
   .suggest-form{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}
   .suggest-form input, .suggest-form textarea{
@@ -614,9 +640,21 @@
             </div>
             <div class="prestige-milestones">🌟 P1: Blood Sacrifice · P3: exclusive Celestial background · P5: −20% pull costs, forever</div>
             <div class="prestige-milestones">🌟 P8: exclusive Nebula background · P11: additional −10% pull costs (−30% total) · P13: +25% idle income · P15: unlocks the Sacrifice All button</div>
+            <div class="prestige-milestones">🛒 Every Prestige also earns Prestige Points, spendable in the shop below on Leaderboard banners — higher tiers unlock at P2/P4/P6/P9/P10/P14</div>
             <div class="prestige-milestones" id="prestigeShinyLine">✨ Shiny chance rises +0.5% per Prestige level (capped at 10%) — currently 2%</div>
           </div>
           <button class="btn-accent prestige-btn" id="prestigeNowBtn" disabled>Prestige now</button>
+        </div>
+
+        <div class="hidden" id="prestigeShopWrap">
+          <div class="settings-row">
+            <div>
+              <b>🛒 Prestige Shop</b>
+              <div class="desc">Spend Prestige Points — earned automatically every time you Prestige — on cosmetic Leaderboard banners. Higher tiers also need a higher Prestige level before they're even purchasable.</div>
+              <div class="prestige-milestones" id="prestigePointsLine">✦ 0 Prestige Points</div>
+            </div>
+          </div>
+          <div class="prestige-shop" id="prestigeShop"></div>
         </div>
 
         <div class="settings-row">
@@ -1002,6 +1040,51 @@ const PRESTIGE_IDLE_BOOST = 0.25;         // +25% idle income once reached
 // the per-card sacrifice buttons and the rest of the Blood Sacrifice economy.
 const PRESTIGE_SACRIFICE_ALL_LEVEL = 15;
 
+// Prestige Shop — cosmetic leaderboard banners, added 2026-07-23 from two
+// board suggestions: "Add a prestige shop" (too vague to build alone) and a
+// same-day follow-up from a different author clarifying it should "give
+// background banners for your stats on the leaderboard". Both were still
+// ambiguous enough to ask the user directly rather than guess; their answers
+// shaped the design below, each flagged since none of this was dictated
+// outright:
+//   - Currency ("a split between using actual prestiges and points that you
+//     get for prestiging"): read as two layers — every banner requires
+//     reaching a specific Prestige LEVEL before it's even purchasable (the
+//     "actual prestiges" half), and on top of that costs Prestige Points,
+//     a new currency earned automatically every time doPrestige() runs
+//     (the "points you get for prestiging" half).
+//   - Presentation ("add all three, with 5 different varieties"): all three
+//     banner types were built — a leaderboard row background strip, a name
+//     badge, and a card frame. "5 varieties" and the separately-picked "a
+//     bigger set (8-10)" total can't both be satisfied exactly (3 types x 5
+//     = 15, well past 8-10) — reconciled as 3 types x 3 varieties = 9 total,
+//     landing inside the chosen range while still giving each type real
+//     variety. Flagging this specific reconciliation as a judgment call.
+//   - Gating ("both"): read as literally both of the two offered options at
+//     once — level-tiered AND a real purchasable shop, exactly as above.
+// Only one banner can be equipped at a time (mirrors the Leaderboard
+// showcase-creature pin) — a further judgment call, since stacking a strip +
+// badge + frame simultaneously risked looking cluttered on a single compact
+// leaderboard row; worth revisiting if the family wants to mix multiple at
+// once.
+const PRESTIGE_POINTS_PER_PRESTIGE = 30; // awarded every time doPrestige() runs, regardless of level reached
+
+const BANNERS = [
+  // Row background strips — recolor the whole leaderboard row behind a
+  // player's name/stats.
+  { id:'strip_sunrise', name:'Sunrise Strip', type:'strip', prestigeRequired:2,  cost:60,  rowClass:'banner-strip-sunrise', icon:'🌅' },
+  { id:'strip_ocean',   name:'Ocean Strip',   type:'strip', prestigeRequired:6,  cost:100, rowClass:'banner-strip-ocean',   icon:'🌊' },
+  { id:'strip_inferno', name:'Inferno Strip', type:'strip', prestigeRequired:10, cost:160, rowClass:'banner-strip-inferno', icon:'🔥' },
+  // Name badges — a small icon shown right next to a player's name.
+  { id:'badge_star',  name:'Star Badge',  type:'badge', prestigeRequired:2,  cost:60,  icon:'⭐' },
+  { id:'badge_crown', name:'Crown Badge', type:'badge', prestigeRequired:6,  cost:100, icon:'👑' },
+  { id:'badge_comet', name:'Comet Badge', type:'badge', prestigeRequired:10, cost:160, icon:'☄️' },
+  // Card frames — a border/glow effect wrapping the whole leaderboard row.
+  { id:'frame_gold',  name:'Gold Frame',  type:'frame', prestigeRequired:4,  cost:80,  rowClass:'banner-frame-gold',  icon:'🖼️' },
+  { id:'frame_prism', name:'Prism Frame', type:'frame', prestigeRequired:9,  cost:150, rowClass:'banner-frame-prism', icon:'🖼️' },
+  { id:'frame_void',  name:'Void Frame',  type:'frame', prestigeRequired:14, cost:220, rowClass:'banner-frame-void',  icon:'🖼️' },
+];
+
 // Pity system: guarantees a Legendary within PITY_THRESHOLD pulls of your last
 // one, so bad luck can never stretch on indefinitely. Counter is global (not
 // per-pool) and only forces a Legendary when the current pull pool actually
@@ -1070,6 +1153,9 @@ function defaultSave(){
     recallUpgradeLevel: 0,       // Creature Recall reward upgrade tier, mirrors memoryUpgradeLevel
     showcaseCreatureId: null,    // owned creature id pinned to display on the public Leaderboard
     soundEnabled: true,          // synthesized sound effects on/off, toggled in Settings
+    prestigePoints: 0,           // Prestige Shop currency — see BANNERS/PRESTIGE_POINTS_PER_PRESTIGE
+    unlockedBanners: [],         // banner ids purchased from the Prestige Shop
+    equippedBanner: '',          // currently-equipped banner id, or '' for none
   };
 }
 
@@ -1099,6 +1185,17 @@ function migrateSave(data){
   merged.recallUpgradeLevel = (data && Number.isInteger(data.recallUpgradeLevel)) ? data.recallUpgradeLevel : 0;
   merged.showcaseCreatureId = (data && typeof data.showcaseCreatureId === 'string') ? data.showcaseCreatureId : null;
   merged.soundEnabled = (data && typeof data.soundEnabled === 'boolean') ? data.soundEnabled : true;
+  // Prestige Points: a new Prestige Shop currency (see BANNERS above),
+  // earned automatically every time doPrestige() runs. Players who'd
+  // already prestiged before this feature shipped get a one-time
+  // retroactive grant based on their current level, rather than starting
+  // at 0 despite real, already-earned Prestige progress — a judgment call,
+  // not something either suggester specified.
+  merged.prestigePoints = (data && Number.isInteger(data.prestigePoints))
+    ? data.prestigePoints
+    : (merged.prestigeLevel||0) * PRESTIGE_POINTS_PER_PRESTIGE;
+  merged.unlockedBanners = Array.isArray(data && data.unlockedBanners) ? data.unlockedBanners.slice() : [];
+  merged.equippedBanner = (data && typeof data.equippedBanner === 'string') ? data.equippedBanner : '';
   merged.version = SAVE_VERSION;
   return merged;
 }
@@ -1188,6 +1285,10 @@ function doPrestige(){
   state.recallUpgradeLevel = 0;
   state.unlockedMinigames = ['memory'];
   state.prestigeLevel = nextLevel;
+  // Prestige Shop currency — awarded on every prestige, not reset by it (see
+  // PRESTIGE_POINTS_PER_PRESTIGE); unlockedBanners/equippedBanner are
+  // cosmetic and preserved too, same treatment as backgrounds.
+  state.prestigePoints = (state.prestigePoints||0) + PRESTIGE_POINTS_PER_PRESTIGE;
   // lifetimeCoins, totalPulls, pity progress, background/unlockedBackgrounds,
   // and unlockedAchievements are intentionally preserved.
   persist();
@@ -1216,6 +1317,9 @@ function renderPrestigeGates(){
   if(economy) economy.classList.toggle('hidden', !unlocked);
   const bloodStripCollection = document.getElementById('bloodCoinStripCollection');
   if(bloodStripCollection) bloodStripCollection.classList.toggle('hidden', !unlocked);
+  const shopWrap = document.getElementById('prestigeShopWrap');
+  if(shopWrap) shopWrap.classList.toggle('hidden', !unlocked);
+  renderPrestigeShop();
   const dupeHint = document.getElementById('collectionDupeHint');
   if(dupeHint){
     dupeHint.textContent = unlocked
@@ -2396,6 +2500,73 @@ document.getElementById('bgShop').addEventListener('click', (e)=>{
   selectOrBuyBackground(swatch.dataset.bgId);
 });
 
+/* =========================================================
+   PRESTIGE SHOP — cosmetic Leaderboard banners bought with
+   Prestige Points. See the BANNERS/PRESTIGE_POINTS_PER_PRESTIGE
+   comment block above for the full design writeup and the
+   judgment calls behind it.
+   ========================================================= */
+function isBannerLevelUnlocked(banner){
+  return (state.prestigeLevel||0) >= banner.prestigeRequired;
+}
+
+function isBannerOwned(banner){
+  return (state.unlockedBanners||[]).includes(banner.id);
+}
+
+function buyOrEquipBanner(id){
+  const banner = BANNERS.find(b => b.id === id);
+  if(!banner) return;
+  if(isBannerOwned(banner)){
+    // Already purchased — toggle equip/unequip, same interaction as the
+    // Leaderboard showcase-creature pin (only one banner can be equipped
+    // at a time; picking a new one replaces whatever was equipped before).
+    state.equippedBanner = (state.equippedBanner === id) ? '' : id;
+    persist();
+    renderPrestigeShop();
+    pushPlayerStats();
+    return;
+  }
+  if(!isBannerLevelUnlocked(banner)) return toast(`Reach Prestige ${banner.prestigeRequired} to unlock ${banner.name}.`);
+  if((state.prestigePoints||0) < banner.cost) return toast(`Not enough Prestige Points — ${banner.name} costs ${banner.cost} ✦ (you have ${state.prestigePoints||0}).`);
+  state.prestigePoints -= banner.cost;
+  state.unlockedBanners.push(id);
+  state.equippedBanner = id; // auto-equip on purchase, matching how buying a background auto-applies it
+  persist();
+  renderPrestigeShop();
+  pushPlayerStats();
+  toast(`Unlocked ${banner.name}!`);
+}
+
+function renderPrestigeShop(){
+  const shop = document.getElementById('prestigeShop');
+  if(!shop) return;
+  const pointsLine = document.getElementById('prestigePointsLine');
+  if(pointsLine) pointsLine.textContent = `✦ ${(state.prestigePoints||0).toLocaleString()} Prestige Points`;
+  shop.innerHTML = BANNERS.map(banner=>{
+    const owned = isBannerOwned(banner);
+    const levelOk = isBannerLevelUnlocked(banner);
+    const active = state.equippedBanner === banner.id;
+    const priceLabel = active ? 'Equipped'
+      : owned ? 'Owned — tap to equip'
+      : !levelOk ? `🌟 Prestige ${banner.prestigeRequired} required`
+      : `${banner.cost} ✦`;
+    return `
+      <div class="banner-swatch ${active?'active':''} ${(!levelOk && !owned)?'locked':''}" data-banner-id="${banner.id}">
+        <div class="banner-preview ${banner.rowClass||''}">${banner.icon}</div>
+        <div class="banner-name">${banner.name}</div>
+        <div class="banner-price">${priceLabel}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+document.getElementById('prestigeShop').addEventListener('click', (e)=>{
+  const swatch = e.target.closest('.banner-swatch');
+  if(!swatch) return;
+  buyOrEquipBanner(swatch.dataset.bannerId);
+});
+
 /* ---------- NAVIGATION ---------- */
 document.querySelectorAll('nav button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -2743,6 +2914,11 @@ function pushPlayerStats(){
   const showcaseId = (state.showcaseCreatureId && (state.owned[state.showcaseCreatureId]||0) > 0)
     ? state.showcaseCreatureId : '';
   const showcaseShiny = showcaseId ? (state.ownedShiny[showcaseId]||0) > 0 : false;
+  // Prestige Shop banner: only publish an id the player actually still owns
+  // (guards against a stale/removed banner ever surfacing publicly), mirroring
+  // the same guard used for showcaseId above.
+  const bannerId = (state.equippedBanner && isBannerOwned({ id: state.equippedBanner }))
+    ? state.equippedBanner : '';
   db.collection('players').doc(getDeviceId()).set({
     name,
     coins: Math.floor(state.coins || 0),
@@ -2751,6 +2927,7 @@ function pushPlayerStats(){
     totalPulls: state.totalPulls || 0,
     showcaseId,
     showcaseShiny,
+    bannerId,
     updatedAt: Date.now(),
   }, { merge: true }).catch(err => console.error('Leaderboard push failed', err));
 }
@@ -2777,11 +2954,18 @@ function renderLeaderboard(list){
     const showcaseHtml = showcaseCreature
       ? `<span class="leaderboard-showcase ${p.showcaseShiny ? 'shiny' : ''}" title="${escapeHtml(showcaseCreature.name)}${p.showcaseShiny ? ' (Shiny)' : ''}">${p.showcaseShiny ? '✨' : ''}${showcaseCreature.emoji}</span>`
       : '';
+    // Prestige Shop banner (see BANNERS): strip/frame types add a CSS class
+    // to the whole row, badge types render a small icon next to the name.
+    const banner = p.bannerId ? BANNERS.find(b => b.id === p.bannerId) : null;
+    const bannerRowClass = (banner && banner.rowClass) ? banner.rowClass : '';
+    const bannerBadgeHtml = (banner && banner.type === 'badge')
+      ? `<span class="leaderboard-badge" title="${escapeHtml(banner.name)}">${banner.icon}</span>`
+      : '';
     return `
-    <div class="leaderboard-row ${p.id===deviceId ? 'me' : ''}">
+    <div class="leaderboard-row ${p.id===deviceId ? 'me' : ''} ${bannerRowClass}">
       <div class="leaderboard-rank">${i+1}</div>
       <div class="leaderboard-name">
-        ${showcaseHtml}<span class="nm">${escapeHtml(p.name || 'Anonymous')}</span>${p.id===deviceId ? '<span class="you-tag">YOU</span>' : ''}
+        ${showcaseHtml}${bannerBadgeHtml}<span class="nm">${escapeHtml(p.name || 'Anonymous')}</span>${p.id===deviceId ? '<span class="you-tag">YOU</span>' : ''}
       </div>
       <div class="leaderboard-stats">
         <span>🌟 <b>${p.prestigeLevel||0}</b></span>
