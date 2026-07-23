@@ -293,6 +293,14 @@
     position:absolute;top:6px;right:6px;font-size:9px;font-weight:800;color:#2a1e00;
     background:linear-gradient(135deg,#ffcf5c,#fff3c4);padding:2px 6px;border-radius:999px;
   }
+  .creature-card.showcased{border-color:var(--accent);box-shadow:0 0 10px rgba(143,107,255,.35);}
+  .showcase-pin-btn{
+    position:absolute;top:6px;left:6px;background:rgba(0,0,0,.35);border:none;border-radius:999px;
+    width:22px;height:22px;font-size:11px;cursor:pointer;padding:0;line-height:22px;opacity:.55;
+    transition:opacity .15s,transform .15s;
+  }
+  .showcase-pin-btn:hover{opacity:1;transform:scale(1.1);}
+  .showcase-pin-btn.active{opacity:1;background:var(--accent-2);}
   .sell-dupe-btn{
     margin-top:6px;padding:4px 8px;font-size:10px;font-weight:700;border-radius:8px;
     background:linear-gradient(135deg,#ffcf5c,#ff9d5c);color:#2a1e00;
@@ -383,12 +391,26 @@
   .leaderboard-row:nth-child(1) .leaderboard-rank{color:var(--gold);}
   .leaderboard-row:nth-child(2) .leaderboard-rank{color:#d7d7e6;}
   .leaderboard-row:nth-child(3) .leaderboard-rank{color:#c98a4b;}
-  .leaderboard-name{flex:1;min-width:0;}
+  .leaderboard-name{flex:1;min-width:0;display:flex;align-items:center;gap:6px;}
+  .leaderboard-showcase{font-size:18px;flex-shrink:0;}
+  .leaderboard-showcase.shiny{filter:drop-shadow(0 0 4px rgba(255,207,92,.8));}
   .leaderboard-name .nm{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .leaderboard-name .you-tag{font-size:10px;color:var(--accent);font-weight:800;margin-left:6px;}
   .leaderboard-stats{display:flex;gap:14px;font-size:12px;color:var(--text-dim);flex-shrink:0;}
   .leaderboard-stats b{color:var(--text);}
   .leaderboard-empty{color:var(--text-dim);font-size:13px;}
+  .sound-toggle{position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;cursor:pointer;}
+  .sound-toggle input{opacity:0;width:0;height:0;}
+  .sound-toggle-slider{
+    position:absolute;inset:0;background:var(--panel-2);border:1px solid var(--line);
+    border-radius:999px;transition:background .15s;
+  }
+  .sound-toggle-slider::before{
+    content:"";position:absolute;width:18px;height:18px;left:2px;top:2px;background:var(--text-dim);
+    border-radius:50%;transition:transform .15s,background .15s;
+  }
+  .sound-toggle input:checked + .sound-toggle-slider{background:var(--accent-2);border-color:var(--accent-2);}
+  .sound-toggle input:checked + .sound-toggle-slider::before{transform:translateX(20px);background:#fff;}
 
   /* ACHIEVEMENTS */
   .achievements-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
@@ -485,6 +507,16 @@
             <span class="upgrade-level-badge" id="upgradeLevelBadge">Level 0/5</span>
             <span id="upgradeEffectLabel">No bonus yet</span>
             <button class="upgrade-buy-btn" id="upgradeBuyBtn">Upgrade</button>
+          </div>
+        </div>
+        <div class="upgrade-panel hidden" id="recallUpgradePanel">
+          <h3>🩸 Creature Recall Upgrade</h3>
+          <div class="upg-desc">Same idea as the Memory Match upgrade — spend blood coins here to permanently boost Creature Recall's per-round coin reward.</div>
+          <div class="blood-coin-strip" id="bloodCoinStripRecall"></div>
+          <div class="upgrade-row">
+            <span class="upgrade-level-badge" id="recallUpgradeLevelBadge">Level 0/5</span>
+            <span id="recallUpgradeEffectLabel">No bonus yet</span>
+            <button class="upgrade-buy-btn" id="recallUpgradeBuyBtn">Upgrade</button>
           </div>
         </div>
       </div>
@@ -610,6 +642,17 @@
             <div class="desc">Your public game name — shown on the Leaderboard and next to your suggestions. Can't be blank.</div>
           </div>
           <input type="text" id="playerNameInput" maxlength="24" placeholder="Your name" style="background:var(--bg-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 10px;" />
+        </div>
+
+        <div class="settings-row">
+          <div>
+            <b>🔊 Sound effects</b>
+            <div class="desc">Little chimes for pulls, shinies, achievements, prestige, and daily bonuses — all synthesized, no audio files. On by default; flip this off anytime, it's purely a feel thing.</div>
+          </div>
+          <label class="sound-toggle">
+            <input type="checkbox" id="soundToggleInput" checked />
+            <span class="sound-toggle-slider"></span>
+          </label>
         </div>
 
         <div class="settings-row">
@@ -756,6 +799,19 @@ const BLOOD_ICON = { common:'🩸', rare:'🩸', epic:'🩸', legendary:'🩸' }
 // Spend blood coins of the matching type to raise Memory Match's reward
 // output — five tiers, escalating through the rarities as you climb.
 const MEMORY_UPGRADE_LEVELS = [
+  { level:1, cost:{ common:3 },    multiplier:1.15 },
+  { level:2, cost:{ rare:3 },      multiplier:1.30 },
+  { level:3, cost:{ epic:3 },      multiplier:1.50 },
+  { level:4, cost:{ legendary:2 }, multiplier:1.75 },
+  { level:5, cost:{ legendary:5 }, multiplier:2.00 },
+];
+
+// Creature Recall gets the same upgrade path as Memory Match (added 2026-07-23,
+// closing an open item flagged in earlier updates — Recall previously had no
+// way to spend blood coins on its own reward output). Mirrors the same tier
+// costs/multipliers as MEMORY_UPGRADE_LEVELS for consistency between the two
+// minigames rather than inventing a second, differently-tuned cost curve.
+const RECALL_UPGRADE_LEVELS = [
   { level:1, cost:{ common:3 },    multiplier:1.15 },
   { level:2, cost:{ rare:3 },      multiplier:1.30 },
   { level:3, cost:{ epic:3 },      multiplier:1.50 },
@@ -918,6 +974,9 @@ function defaultSave(){
     unlockedAchievements: [],    // achievement ids already unlocked
     hasPerfectMemoryMatch: false,// cleared Memory Match in the minimum 6 moves
     hasRecallFlawless: false,    // cleared all 10 Creature Recall rounds
+    recallUpgradeLevel: 0,       // Creature Recall reward upgrade tier, mirrors memoryUpgradeLevel
+    showcaseCreatureId: null,    // owned creature id pinned to display on the public Leaderboard
+    soundEnabled: true,          // synthesized sound effects on/off, toggled in Settings
   };
 }
 
@@ -944,6 +1003,9 @@ function migrateSave(data){
   merged.unlockedAchievements = Array.isArray(data && data.unlockedAchievements) ? data.unlockedAchievements.slice() : [];
   merged.hasPerfectMemoryMatch = !!(data && data.hasPerfectMemoryMatch);
   merged.hasRecallFlawless = !!(data && data.hasRecallFlawless);
+  merged.recallUpgradeLevel = (data && Number.isInteger(data.recallUpgradeLevel)) ? data.recallUpgradeLevel : 0;
+  merged.showcaseCreatureId = (data && typeof data.showcaseCreatureId === 'string') ? data.showcaseCreatureId : null;
+  merged.soundEnabled = (data && typeof data.soundEnabled === 'boolean') ? data.soundEnabled : true;
   merged.version = SAVE_VERSION;
   return merged;
 }
@@ -1018,6 +1080,7 @@ function doPrestige(){
   state.completedSets = [];
   state.bloodCoins = { common:0, rare:0, epic:0, legendary:0 };
   state.memoryUpgradeLevel = 0;
+  state.recallUpgradeLevel = 0;
   state.unlockedMinigames = ['memory'];
   state.prestigeLevel = nextLevel;
   // lifetimeCoins, totalPulls, pity progress, background/unlockedBackgrounds,
@@ -1029,12 +1092,14 @@ function doPrestige(){
   updatePullUI();
   renderUpgradePanel();
   renderMinigameUnlocks();
+  renderRecallUpgradePanel();
   renderPrestigePanel();
   renderPrestigeGates();
   renderBgShop();
   checkAchievements();
   document.getElementById('prestigeModal').classList.add('hidden');
   pushPlayerStats();
+  sfxPrestige();
   toast(`Prestige ${nextLevel} reached! Blood Sacrifice is unlocked and coin gain is up ${Math.round(prestigeCoinMultiplier()*100-100)}%.`);
 }
 
@@ -1306,7 +1371,7 @@ function onRecallTileClick(i){
 function recallReward(roundsCompleted){
   let total = 0;
   for(let r = 1; r <= roundsCompleted; r++) total += 20 + r * 10;
-  return total;
+  return Math.round(total * recallRewardMultiplier());
 }
 
 function finishRecallGame(cleared){
@@ -1352,6 +1417,7 @@ function unlockRecall(){
   persist();
   renderBloodCoins();
   renderMinigameUnlocks();
+  renderRecallUpgradePanel();
   toast("Unlocked Creature Recall! 🎯");
 }
 
@@ -1456,6 +1522,71 @@ function updatePullUI(){
 /* ---------- GACHA MACHINE ANIMATION ---------- */
 function wait(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
 
+/* ---------- SOUND EFFECTS ----------
+   Synthesized via the Web Audio API — no external audio files, so the game
+   stays a single self-contained HTML document. The AudioContext is created
+   lazily on first use (every sfx* call happens inside a click handler, so
+   this always satisfies browsers' autoplay-requires-a-gesture rule without
+   needing a separate "enable sound" prompt). Muted entirely via
+   state.soundEnabled, toggled in Settings. */
+let audioCtx = null;
+function getAudioCtx(){
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if(!Ctx) return null;
+  if(!audioCtx) audioCtx = new Ctx();
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function playTone(freq, startOffset, duration, opts){
+  const ctx = getAudioCtx();
+  if(!ctx) return;
+  const { type = 'sine', volume = 0.16 } = opts || {};
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  const startAt = ctx.currentTime + startOffset;
+  gain.gain.setValueAtTime(0, startAt);
+  gain.gain.linearRampToValueAtTime(volume, startAt + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(startAt);
+  osc.stop(startAt + duration + 0.03);
+}
+
+// notes: [[freq, offsetSeconds, durationSeconds], ...] — a tiny arpeggio.
+function playChime(notes, opts){
+  if(!state.soundEnabled) return;
+  notes.forEach(([freq, offset, dur]) => playTone(freq, offset, dur, opts));
+}
+
+const RARITY_SFX = {
+  common:    [[392, 0, 0.16]],
+  rare:      [[440, 0, 0.14], [554, 0.08, 0.18]],
+  epic:      [[523, 0, 0.14], [659, 0.09, 0.14], [784, 0.18, 0.24]],
+  legendary: [[523, 0, 0.16], [659, 0.1, 0.16], [784, 0.2, 0.16], [1047, 0.3, 0.32]],
+};
+const SHINY_SFX = [[1568, 0.05, 0.12], [1976, 0.15, 0.12], [2349, 0.25, 0.22]];
+
+function sfxPull(rarity, shiny){
+  playChime(RARITY_SFX[rarity] || RARITY_SFX.common, { type:'triangle' });
+  if(shiny) playChime(SHINY_SFX, { type:'sine', volume:0.09 });
+}
+
+function sfxAchievement(){
+  playChime([[659,0,0.12],[784,0.1,0.12],[988,0.2,0.12],[1318,0.32,0.38]], { type:'square', volume:0.09 });
+}
+
+function sfxDailyBonus(){
+  playChime([[523,0,0.12],[659,0.1,0.12],[880,0.2,0.3]], { type:'triangle', volume:0.13 });
+}
+
+function sfxPrestige(){
+  playChime([[392,0,0.2],[523,0.15,0.2],[659,0.3,0.2],[784,0.45,0.2],[1047,0.6,0.55]], { type:'sawtooth', volume:0.09 });
+}
+
 async function playGachaAnimation(){
   const orb = document.getElementById('pullOrb');
   const wrap = document.getElementById('capsuleWrap');
@@ -1548,6 +1679,7 @@ const revealCard = document.getElementById('revealCard');
 function rarityColorVar(rarity){ return RARITIES[rarity].color; }
 
 function showSingleReveal({creature, wasOwned, pity, shiny}){
+  sfxPull(creature.rarity, shiny);
   revealCard.innerHTML = `
     ${shiny ? `<div class="reveal-shiny-badge">✨ SHINY!</div>` : ''}
     <div class="reveal-rarity" style="background:${rarityColorVar(creature.rarity)};color:#1a1330;">${RARITIES[creature.rarity].label}${pity ? ' · PITY' : ''}</div>
@@ -1561,7 +1693,15 @@ function showSingleReveal({creature, wasOwned, pity, shiny}){
   document.getElementById('closeRevealBtn').addEventListener('click', ()=> revealModal.classList.add('hidden'));
 }
 
+const RARITY_RANK = ['common', 'rare', 'epic', 'legendary'];
+
 function showMultiReveal(results){
+  // One combined chime for the whole batch, pitched to the best rarity
+  // pulled — ten separate overlapping chimes would just be noise.
+  const bestRarity = results.reduce((best, r) =>
+    RARITY_RANK.indexOf(r.creature.rarity) > RARITY_RANK.indexOf(best) ? r.creature.rarity : best, 'common');
+  sfxPull(bestRarity, results.some(r => r.shiny));
+
   const cells = results.map(({creature, wasOwned, shiny})=>`
     <div class="multi-cell ${shiny ? 'shiny' : ''}" style="border-color:${rarityColorVar(creature.rarity)};color:${rarityColorVar(creature.rarity)}">
       ${shiny ? '✨' : ''}${creature.emoji}
@@ -1588,10 +1728,12 @@ function creatureCardHtml(c){
   const sellValue = RARITIES[c.rarity].coinValue;
   const shinySellValue = sellValue * SHINY_SELL_MULTIPLIER;
   const bloodValue = RARITIES[c.rarity].bloodValue;
+  const isShowcased = state.showcaseCreatureId === c.id;
   return `
-    <div class="creature-card ${locked?'locked':''} ${shinyCount>0 ? 'has-shiny':''}">
+    <div class="creature-card ${locked?'locked':''} ${shinyCount>0 ? 'has-shiny':''} ${isShowcased ? 'showcased' : ''}">
       <div class="rarity-tag" style="background:${rarityColorVar(c.rarity)}"></div>
       ${shinyCount > 0 ? `<div class="shiny-badge">✨x${shinyCount}</div>` : ''}
+      ${!locked ? `<button class="showcase-pin-btn ${isShowcased ? 'active' : ''}" data-showcase-id="${c.id}" title="${isShowcased ? 'Showcased on the Leaderboard' : 'Pin to your Leaderboard row'}">${isShowcased ? '📌' : '📍'}</button>` : ''}
       <div class="emoji">${locked ? '❔' : c.emoji}</div>
       <div class="nm">${locked ? '???' : c.name}</div>
       <div class="cnt">${locked ? RARITIES[c.rarity].label : 'x' + count}</div>
@@ -1600,6 +1742,17 @@ function creatureCardHtml(c){
       ${count > 1 && hasSacrificeUnlocked() ? `<button class="sacrifice-dupe-btn" data-sacrifice-id="${c.id}">Sacrifice 1 (+${bloodValue} 🩸 ${RARITIES[c.rarity].label})</button>` : ''}
     </div>
   `;
+}
+
+// Toggling the showcase pin: setting a new creature silently replaces
+// whichever one was pinned before (only one at a time — the Leaderboard row
+// only has room for one). Clicking the currently-pinned creature unpins it.
+function toggleShowcase(id){
+  state.showcaseCreatureId = (state.showcaseCreatureId === id) ? null : id;
+  persist();
+  renderCollection();
+  pushPlayerStats();
+  toast(state.showcaseCreatureId ? 'Pinned to your Leaderboard row!' : 'Unpinned from your Leaderboard row.');
 }
 
 function renderCollection(){
@@ -1721,13 +1874,14 @@ function sacrificeOneDuplicate(id){
   renderCollection();
   renderUpgradePanel();
   renderMinigameUnlocks();
+  renderRecallUpgradePanel();
   toast(`Sacrificed a duplicate ${creature.name} for +${value} 🩸 ${RARITIES[creature.rarity].label} blood coin${value===1?'':'s'}`);
 }
 
 function renderBloodCoins(){
   const order = ['common','rare','epic','legendary'];
   const html = order.map(r => `<div class="blood-chip">🩸 ${RARITIES[r].label} <b>${state.bloodCoins[r]||0}</b></div>`).join('');
-  ['bloodCoinStripPull','bloodCoinStripCollection'].forEach(id=>{
+  ['bloodCoinStripPull','bloodCoinStripCollection','bloodCoinStripRecall'].forEach(id=>{
     const el = document.getElementById(id);
     if(el) el.innerHTML = html;
   });
@@ -1740,6 +1894,8 @@ document.getElementById('collectionGrid').addEventListener('click', (e)=>{
   if(sellShinyBtn){ sellOneShiny(sellShinyBtn.dataset.sellShinyId); return; }
   const sacBtn = e.target.closest('.sacrifice-dupe-btn');
   if(sacBtn){ sacrificeOneDuplicate(sacBtn.dataset.sacrificeId); return; }
+  const showcaseBtn = e.target.closest('.showcase-pin-btn');
+  if(showcaseBtn){ toggleShowcase(showcaseBtn.dataset.showcaseId); return; }
 });
 
 document.getElementById('sellAllDupesBtn').addEventListener('click', sellAllDuplicates);
@@ -1792,6 +1948,58 @@ function buyMemoryUpgrade(){
 }
 
 document.getElementById('upgradeBuyBtn').addEventListener('click', buyMemoryUpgrade);
+
+/* ---------- CREATURE RECALL UPGRADE (spent with blood coins) ---------- */
+function recallRewardMultiplier(){
+  const lvl = state.recallUpgradeLevel || 0;
+  if(lvl <= 0) return 1;
+  const tier = RECALL_UPGRADE_LEVELS[lvl - 1];
+  return tier ? tier.multiplier : 1;
+}
+
+function renderRecallUpgradePanel(){
+  const panel = document.getElementById('recallUpgradePanel');
+  const badge = document.getElementById('recallUpgradeLevelBadge');
+  const label = document.getElementById('recallUpgradeEffectLabel');
+  const btn = document.getElementById('recallUpgradeBuyBtn');
+  if(!panel || !badge || !label || !btn) return;
+
+  // Only worth showing once Creature Recall itself is actually unlocked —
+  // upgrading a minigame you can't play yet would just be confusing.
+  const recallUnlocked = state.unlockedMinigames.includes('recall');
+  panel.classList.toggle('hidden', !recallUnlocked);
+  if(!recallUnlocked) return;
+
+  const lvl = state.recallUpgradeLevel || 0;
+  badge.textContent = `Level ${lvl}/${RECALL_UPGRADE_LEVELS.length}`;
+  label.textContent = lvl > 0
+    ? `+${Math.round((recallRewardMultiplier()-1)*100)}% Creature Recall rewards`
+    : 'No bonus yet';
+
+  if(lvl >= RECALL_UPGRADE_LEVELS.length){
+    btn.replaceWith(Object.assign(document.createElement('span'), { className:'upgrade-maxed', id:'recallUpgradeBuyBtn', textContent:'Maxed out!' }));
+    return;
+  }
+  const next = RECALL_UPGRADE_LEVELS[lvl];
+  const costStr = Object.entries(next.cost).map(([r,a]) => `${a} 🩸${RARITIES[r].label}`).join(' + ');
+  btn.textContent = `Upgrade to Lv${next.level} (${costStr})`;
+  btn.disabled = !canAffordUpgradeCost(next.cost);
+}
+
+function buyRecallUpgrade(){
+  const lvl = state.recallUpgradeLevel || 0;
+  if(lvl >= RECALL_UPGRADE_LEVELS.length) return;
+  const next = RECALL_UPGRADE_LEVELS[lvl];
+  if(!canAffordUpgradeCost(next.cost)) return toast("Not enough blood coins for this upgrade yet.");
+  Object.entries(next.cost).forEach(([r,a]) => { state.bloodCoins[r] -= a; });
+  state.recallUpgradeLevel = next.level;
+  persist();
+  renderBloodCoins();
+  renderRecallUpgradePanel();
+  toast(`Creature Recall upgraded to Level ${next.level}! Rewards now x${next.multiplier}`);
+}
+
+document.getElementById('recallUpgradeBuyBtn').addEventListener('click', buyRecallUpgrade);
 
 /* ---------- BACKGROUND SHOP ---------- */
 function applyBackground(id){
@@ -1899,6 +2107,14 @@ playerNameInput.addEventListener('change', ()=>{
   pushPlayerStats();
 });
 
+const soundToggleInput = document.getElementById('soundToggleInput');
+soundToggleInput.checked = state.soundEnabled !== false;
+soundToggleInput.addEventListener('change', ()=>{
+  state.soundEnabled = soundToggleInput.checked;
+  persist();
+  if(state.soundEnabled) playChime([[659, 0, 0.12], [880, 0.08, 0.14]], { type:'triangle', volume:0.14 });
+});
+
 /* ---------- SETTINGS: export / import save ---------- */
 document.getElementById('exportSaveBtn').addEventListener('click', ()=>{
   const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
@@ -1942,6 +2158,7 @@ document.getElementById('resetBtn').addEventListener('click', ()=>{
   renderCollection();
   renderUpgradePanel();
   renderMinigameUnlocks();
+  renderRecallUpgradePanel();
   renderPrestigePanel();
   renderPrestigeGates();
   toast('Progress reset.');
@@ -2192,11 +2409,20 @@ function pushPlayerStats(){
   const name = (state.playerName || '').trim();
   if(!name) return; // name gate should prevent this, but never publish an unnamed entry
   lastLeaderboardPush = Date.now();
+  // Showcase: only publish an id the player actually still owns (guards
+  // against a stale pin surviving a Prestige reset that wiped the
+  // collection) — sent as '' rather than null since Firestore rules
+  // validate it as a string field, not nullable.
+  const showcaseId = (state.showcaseCreatureId && (state.owned[state.showcaseCreatureId]||0) > 0)
+    ? state.showcaseCreatureId : '';
+  const showcaseShiny = showcaseId ? (state.ownedShiny[showcaseId]||0) > 0 : false;
   db.collection('players').doc(getDeviceId()).set({
     name,
     coins: Math.floor(state.coins || 0),
     bloodCoins: bloodCoinsTotal(),
     prestigeLevel: state.prestigeLevel || 0,
+    showcaseId,
+    showcaseShiny,
     updatedAt: Date.now(),
   }, { merge: true }).catch(err => console.error('Leaderboard push failed', err));
 }
@@ -2218,11 +2444,16 @@ function renderLeaderboard(list){
     if(p !== 0) return p;
     return (b.coins||0) - (a.coins||0);
   });
-  wrap.innerHTML = `<div class="leaderboard-list">${sorted.map((p, i)=>`
+  wrap.innerHTML = `<div class="leaderboard-list">${sorted.map((p, i)=>{
+    const showcaseCreature = p.showcaseId ? CREATURES.find(c => c.id === p.showcaseId) : null;
+    const showcaseHtml = showcaseCreature
+      ? `<span class="leaderboard-showcase ${p.showcaseShiny ? 'shiny' : ''}" title="${escapeHtml(showcaseCreature.name)}${p.showcaseShiny ? ' (Shiny)' : ''}">${p.showcaseShiny ? '✨' : ''}${showcaseCreature.emoji}</span>`
+      : '';
+    return `
     <div class="leaderboard-row ${p.id===deviceId ? 'me' : ''}">
       <div class="leaderboard-rank">${i+1}</div>
       <div class="leaderboard-name">
-        <span class="nm">${escapeHtml(p.name || 'Anonymous')}</span>${p.id===deviceId ? '<span class="you-tag">YOU</span>' : ''}
+        ${showcaseHtml}<span class="nm">${escapeHtml(p.name || 'Anonymous')}</span>${p.id===deviceId ? '<span class="you-tag">YOU</span>' : ''}
       </div>
       <div class="leaderboard-stats">
         <span>🌟 <b>${p.prestigeLevel||0}</b></span>
@@ -2230,7 +2461,8 @@ function renderLeaderboard(list){
         <span>🩸 <b>${(p.bloodCoins||0).toLocaleString()}</b></span>
       </div>
     </div>
-  `).join('')}</div>`;
+  `;
+  }).join('')}</div>`;
 }
 
 /* =========================================================
@@ -2273,6 +2505,7 @@ function checkAchievements(){
   });
   if(newly.length){
     persist();
+    sfxAchievement();
     newly.forEach(a => toast(`🏅 Achievement unlocked: ${a.name}!`));
     renderAchievements();
   }
@@ -2333,6 +2566,7 @@ function claimDailyBonus(pending){
   addCoins(pending.reward);
   persist();
   renderCoins();
+  sfxDailyBonus();
   checkAchievements();
   document.getElementById('dailyBonusModal').classList.add('hidden');
   toast(`+${pending.reward} 🪙 — Day ${pending.newStreak} streak!`);
@@ -2398,6 +2632,7 @@ function init(){
   updatePullUI();
   renderUpgradePanel();
   renderMinigameUnlocks();
+  renderRecallUpgradePanel();
   renderPrestigePanel();
   renderPrestigeGates();
   applyBackground(state.background);
