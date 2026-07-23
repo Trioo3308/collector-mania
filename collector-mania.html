@@ -38,6 +38,8 @@
   body[data-bg="ocean"]{ background-image:radial-gradient(circle at 20% 10%, #1e3a4d 0%, var(--bg-2) 55%); }
   body[data-bg="aurora"]{ --bg-2:#0f0a1f; --accent:#5cffb0; --accent-2:#c15cff; }
   body[data-bg="aurora"]{ background-image:radial-gradient(circle at 20% 10%, #2a1e4d 0%, var(--bg-2) 55%, #0f0a1f 100%); }
+  body[data-bg="celestial"]{ --bg-2:#0d0a1a; --accent:#ffcf5c; --accent-2:#8f6bff; }
+  body[data-bg="celestial"]{ background-image:radial-gradient(circle at 20% 10%, #4a3580 0%, var(--bg-2) 45%, #1a1330 100%), radial-gradient(circle at 80% 85%, rgba(255,207,92,.25) 0%, transparent 40%); }
   *{box-sizing:border-box;}
   html,body{height:100%;}
   body{
@@ -127,6 +129,7 @@
   @keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-10px);}}
   .pull-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
   .odds{font-size:12px;color:var(--text-dim);text-align:center;max-width:420px;line-height:1.6;}
+  .pity-line{color:var(--gold);font-weight:700;}
   .clicker-row{display:flex;gap:10px;justify-content:center;margin-top:6px;flex-wrap:wrap;}
 
   /* SET PICKER (themed pulls) */
@@ -180,6 +183,13 @@
   }
   @keyframes pop{from{transform:scale(.6);opacity:0;}to{transform:scale(1);opacity:1;}}
   .reveal-emoji{font-size:80px;margin:6px 0;filter:drop-shadow(0 0 18px currentColor);}
+  .reveal-emoji.shiny{filter:drop-shadow(0 0 24px var(--gold)) drop-shadow(0 0 10px #fff);animation:shinyPulse 1.4s ease-in-out infinite;}
+  @keyframes shinyPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
+  .reveal-shiny-badge{
+    font-size:13px;font-weight:800;letter-spacing:.5px;color:#2a1e00;
+    background:linear-gradient(135deg,#ffcf5c,#fff3c4,#ffcf5c);padding:4px 12px;border-radius:999px;
+    display:inline-block;margin-bottom:8px;
+  }
   .reveal-rarity{
     display:inline-block;padding:4px 14px;border-radius:999px;font-size:12px;font-weight:700;
     letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;
@@ -192,6 +202,7 @@
     background:var(--panel-2);border-radius:10px;padding:8px 4px;text-align:center;font-size:26px;
     border:2px solid var(--line);
   }
+  .multi-cell.shiny{box-shadow:0 0 12px var(--gold);border-color:var(--gold) !important;}
   .multi-cell .nm{font-size:9px;color:var(--text-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
   /* MEMORY MATCH */
@@ -254,14 +265,24 @@
   }
   .creature-card:hover{transform:translateY(-3px);}
   .creature-card.locked{opacity:.35;filter:grayscale(1);}
+  .creature-card.has-shiny{border-color:var(--gold);box-shadow:0 0 10px rgba(255,207,92,.35);}
   .creature-card .emoji{font-size:36px;}
   .creature-card .nm{font-size:12px;font-weight:700;margin-top:6px;}
   .creature-card .cnt{font-size:10px;color:var(--text-dim);margin-top:2px;}
+  .shiny-badge{
+    position:absolute;top:6px;right:6px;font-size:9px;font-weight:800;color:#2a1e00;
+    background:linear-gradient(135deg,#ffcf5c,#fff3c4);padding:2px 6px;border-radius:999px;
+  }
   .sell-dupe-btn{
     margin-top:6px;padding:4px 8px;font-size:10px;font-weight:700;border-radius:8px;
     background:linear-gradient(135deg,#ffcf5c,#ff9d5c);color:#2a1e00;
   }
   .sell-dupe-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 10px rgba(255,159,92,.35);}
+  .sell-shiny-btn{
+    margin-top:4px;padding:4px 8px;font-size:10px;font-weight:700;border-radius:8px;
+    background:linear-gradient(135deg,#fff3c4,#ffcf5c);color:#2a1e00;
+  }
+  .sell-shiny-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 10px rgba(255,207,92,.45);}
   .sacrifice-dupe-btn{
     margin-top:4px;padding:4px 8px;font-size:10px;font-weight:700;border-radius:8px;
     background:linear-gradient(135deg,#8a1c3a,#c1305c);color:#ffe3ec;
@@ -300,6 +321,8 @@
   }
   .bg-swatch:hover{transform:translateY(-2px);}
   .bg-swatch.active{border-color:var(--accent);}
+  .bg-swatch.prestige-bg{border-color:rgba(255,207,92,.4);}
+  .bg-swatch.prestige-bg .bg-price{color:var(--gold);}
   .bg-swatch .bg-preview{height:36px;border-radius:8px;margin-bottom:8px;}
   .bg-swatch .bg-name{font-size:12px;font-weight:700;}
   .bg-swatch .bg-price{font-size:11px;color:var(--text-dim);margin-top:2px;}
@@ -347,6 +370,19 @@
   .leaderboard-stats b{color:var(--text);}
   .leaderboard-empty{color:var(--text-dim);font-size:13px;}
 
+  /* ACHIEVEMENTS */
+  .achievements-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
+  .achievement-card{
+    background:var(--panel-2);border:2px solid var(--line);border-radius:12px;padding:14px 10px;text-align:center;
+    transition:transform .15s;
+  }
+  .achievement-card:hover{transform:translateY(-2px);}
+  .achievement-card.locked{opacity:.4;filter:grayscale(1);}
+  .achievement-card.unlocked{border-color:var(--gold);box-shadow:0 0 10px rgba(255,207,92,.3);}
+  .achievement-card .icon{font-size:30px;}
+  .achievement-card .nm{font-weight:700;font-size:13px;margin-top:6px;}
+  .achievement-card .desc{font-size:11px;color:var(--text-dim);margin-top:4px;line-height:1.4;}
+
   /* SETTINGS */
   .settings-grid{display:flex;flex-direction:column;gap:14px;}
   .settings-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel-2);border-radius:12px;padding:12px 16px;}
@@ -357,6 +393,7 @@
     color:#2a1e00;padding:3px 8px;border-radius:999px;margin-left:8px;vertical-align:middle;
   }
   .prestige-reqs{font-size:12px;color:var(--text-dim);margin-top:8px;display:flex;flex-direction:column;gap:3px;}
+  .prestige-milestones{font-size:11px;color:var(--gold);margin-top:8px;}
   .prestige-btn:disabled{opacity:.35;}
   .prestige-summary{display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;font-size:13px;}
   .prestige-summary ul{margin:6px 0 0 18px;padding:0;color:var(--text-dim);line-height:1.6;}
@@ -390,6 +427,7 @@
     <button class="active" data-view="pull">✨ Pull</button>
     <button data-view="collection">📖 Collection</button>
     <button data-view="leaderboard">🏆 Leaderboard</button>
+    <button data-view="achievements">🏅 Achievements</button>
     <button data-view="suggest">💡 Suggestions</button>
     <button data-view="settings">⚙️ Settings</button>
   </nav>
@@ -434,7 +472,8 @@
         <span id="oddsLine">Common 55% · Rare 30% · Epic 12% · Legendary 3%</span> — duplicates join your collection as extra copies you can sell anytime.
         Coins also trickle in over time based on your collection.<br>
         6 themed collections, 30 characters total — complete a set for a bonus.<br>
-        Play Memory Match for coins — fewer moves and a faster time earn more.
+        Play Memory Match for coins — fewer moves and a faster time earn more.<br>
+        <span id="pityLine" class="pity-line"></span>
       </div>
     </div>
   </div>
@@ -447,6 +486,7 @@
         <div class="stat-chip"><b id="statSets">0/0</b>Sets complete</div>
         <div class="stat-chip"><b id="statPulls">0</b>Total pulls</div>
         <div class="stat-chip"><b id="statCoinsEarned">0</b>Lifetime coins</div>
+        <div class="stat-chip"><b id="statShiny">0/0</b>✨ Shinies found</div>
         <button class="btn-gold sell-all-btn" id="sellAllDupesBtn">🪙 Sell all duplicates</button>
       </div>
       <div class="dupe-hint" id="collectionDupeHint">Own more than one of a character? Sell the extras for quick coins, or sacrifice them for blood coins to spend on minigame upgrades (⚙️ see the Pull tab).</div>
@@ -464,6 +504,18 @@
       </div>
       <div class="leaderboard-hint">Ranked by Prestige, then by coins. Updates live as everyone plays — refresh anytime to see the latest.</div>
       <div id="leaderboardList"></div>
+    </div>
+  </div>
+
+  <!-- ACHIEVEMENTS VIEW -->
+  <div class="view" id="view-achievements">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+        <h3>🏅 Achievements</h3>
+        <span class="stat-chip"><b id="achievementsCount">0/0</b>Unlocked</span>
+      </div>
+      <div class="leaderboard-hint">Personal milestones — unlock them at your own pace. Not shown on the Leaderboard.</div>
+      <div id="achievementsList" class="achievements-grid"></div>
     </div>
   </div>
 
@@ -495,6 +547,7 @@
               <div id="prestigeReqCollection">❌ Own all 30 characters (0/30)</div>
               <div id="prestigeReqCoins">❌ Have 5,000 🪙 banked (0/5,000)</div>
             </div>
+            <div class="prestige-milestones">🌟 P1: Blood Sacrifice · P3: exclusive Celestial background · P5: −20% pull costs, forever</div>
           </div>
           <button class="btn-accent prestige-btn" id="prestigeNowBtn" disabled>Prestige now</button>
         </div>
@@ -611,6 +664,7 @@
         <b>Resets:</b>
         <ul>
           <li>Your collection (all characters)</li>
+          <li>Shiny finds</li>
           <li>Coins (back to 60)</li>
           <li>Completed set bonuses</li>
           <li>Blood coins &amp; Memory Match upgrade</li>
@@ -622,7 +676,8 @@
         <ul>
           <li>Prestige level (permanent) + coin bonus</li>
           <li>Lifetime coins &amp; total pulls stats</li>
-          <li>Background theme &amp; unlocked backgrounds</li>
+          <li>Background theme, unlocked backgrounds &amp; achievements</li>
+          <li>Pity progress &amp; login streak</li>
         </ul>
       </div>
     </div>
@@ -641,6 +696,17 @@
     <div class="reveal-flavor" style="min-height:0;margin-bottom:18px;">Pick a game name before you start playing — it's how you'll show up on the public leaderboard and in Suggestions.</div>
     <input type="text" id="nameGateInput" maxlength="24" placeholder="Your game name" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;text-align:center;margin-bottom:14px;" />
     <button class="btn-accent" id="nameGateSubmitBtn" disabled style="width:100%;">Let's play!</button>
+  </div>
+</div>
+
+<!-- DAILY BONUS MODAL — dismissible via Claim only, shown at most once a day -->
+<div class="modal-backdrop hidden" id="dailyBonusModal">
+  <div class="reveal-card" style="max-width:360px;">
+    <div class="reveal-emoji" style="color:var(--gold);">🎁</div>
+    <div class="reveal-name" id="dailyBonusStreakLabel">Day 1</div>
+    <div class="reveal-flavor" style="min-height:0;">Welcome back! Here's your daily login bonus.</div>
+    <div class="reveal-dupe" id="dailyBonusRewardLabel" style="color:var(--gold);font-size:20px;font-weight:800;">+50 🪙</div>
+    <button class="btn-accent" id="dailyBonusClaimBtn">Claim</button>
   </div>
 </div>
 
@@ -676,15 +742,23 @@ const MEMORY_UPGRADE_LEVELS = [
   { level:5, cost:{ legendary:5 }, multiplier:2.00 },
 ];
 
+// Prestige milestone that unlocks the Celestial background (declared here,
+// ahead of BACKGROUNDS, since that array references it directly; the rest of
+// the Prestige constants live further down near CREATURES/PRESTIGE_REQUIRED_*).
+const PRESTIGE_CELESTIAL_BG_LEVEL = 3;
+
 // Purchasable background themes (bought with regular coins, per Th3C0olK11d's
 // suggestion that backgrounds "could instead be normal coins"). Each swaps a
 // handful of CSS custom properties via body[data-bg="id"] rules.
 const BACKGROUNDS = [
-  { id:'default', name:'Midnight Violet', cost:0 },
-  { id:'sunset',   name:'Sunset Ember',   cost:250 },
-  { id:'forest',   name:'Forest Canopy',  cost:250 },
-  { id:'ocean',    name:'Ocean Depths',   cost:250 },
-  { id:'aurora',   name:'Aurora',         cost:450 },
+  { id:'default',   name:'Midnight Violet', cost:0 },
+  { id:'sunset',    name:'Sunset Ember',    cost:250 },
+  { id:'forest',    name:'Forest Canopy',   cost:250 },
+  { id:'ocean',     name:'Ocean Depths',    cost:250 },
+  { id:'aurora',    name:'Aurora',          cost:450 },
+  // Prestige-exclusive — can't be bought with coins, unlocks automatically
+  // once the milestone is reached (see PRESTIGE_CELESTIAL_BG_LEVEL).
+  { id:'celestial', name:'Celestial',       cost:0, prestigeRequired: PRESTIGE_CELESTIAL_BG_LEVEL },
 ];
 
 // Themed collections — group characters into sets. Collecting every member
@@ -755,6 +829,27 @@ const DEVICE_KEY = 'collectorMania_deviceId';
 const PRESTIGE_REQUIRED_COLLECTION = CREATURES.length; // own every character
 const PRESTIGE_REQUIRED_COINS = 5000;                  // and bank this many coins
 const PRESTIGE_COIN_BONUS_PER_LEVEL = 0.10;            // +10% coin gain per prestige level, stacking
+// Prestige milestone unlocks — beyond level 1's Blood Sacrifice gate, later
+// levels unlock their own rewards so climbing Prestige keeps meaning something.
+// (PRESTIGE_CELESTIAL_BG_LEVEL is declared earlier, next to BACKGROUNDS.)
+const PRESTIGE_PULL_DISCOUNT_LEVEL = 5;  // unlocks a permanent discount on all pull costs
+const PRESTIGE_PULL_DISCOUNT = 0.20;     // -20% pull costs once reached
+
+// Pity system: guarantees a Legendary within PITY_THRESHOLD pulls of your last
+// one, so bad luck can never stretch on indefinitely. Counter is global (not
+// per-pool) and only forces a Legendary when the current pull pool actually
+// contains one (a few themed sets have none).
+const PITY_THRESHOLD = 50;
+
+// Shiny variants: a small independent chance on every pull for a sparkly
+// version of whatever creature you got — purely a rare cosmetic/value bonus
+// layered on top of the normal pull, chased even after the collection is full.
+const SHINY_CHANCE = 0.02;
+const SHINY_SELL_MULTIPLIER = 3;
+
+// Daily login streak — reward cycles every 7 days but the streak counter
+// itself keeps climbing (tracked for the Streak Keeper achievement).
+const DAILY_STREAK_REWARDS = [50, 75, 100, 125, 150, 175, 250];
 
 // Shared family Firebase project — every player connects here automatically,
 // no setup screen needed. A player can still override this in Settings if
@@ -786,6 +881,14 @@ function defaultSave(){
     unlockedBackgrounds: ['default'], // background ids purchased with coins
     unlockedMinigames: ['memory'], // minigame ids unlocked with blood coins ('memory' always free)
     prestigeLevel: 0,            // permanent prestige count — see PRESTIGE section
+    pullsSinceLegendary: 0,      // pity counter — see PITY_THRESHOLD
+    ownedShiny: {},              // id -> count of shiny copies owned (subset of owned[id])
+    lastLoginDate: null,         // 'YYYY-MM-DD' of the last claimed daily bonus
+    loginStreak: 0,              // current consecutive-day streak
+    bestLoginStreak: 0,          // highest streak ever reached, for the Streak Keeper achievement
+    unlockedAchievements: [],    // achievement ids already unlocked
+    hasPerfectMemoryMatch: false,// cleared Memory Match in the minimum 6 moves
+    hasRecallFlawless: false,    // cleared all 10 Creature Recall rounds
   };
 }
 
@@ -804,6 +907,14 @@ function migrateSave(data){
   if(!merged.unlockedBackgrounds.includes('default')) merged.unlockedBackgrounds.push('default');
   merged.unlockedMinigames = Array.isArray(data && data.unlockedMinigames) ? data.unlockedMinigames.slice() : ['memory'];
   if(!merged.unlockedMinigames.includes('memory')) merged.unlockedMinigames.push('memory');
+  merged.pullsSinceLegendary = (data && Number.isInteger(data.pullsSinceLegendary)) ? data.pullsSinceLegendary : 0;
+  merged.ownedShiny = Object.assign({}, data && data.ownedShiny ? data.ownedShiny : {});
+  merged.lastLoginDate = (data && typeof data.lastLoginDate === 'string') ? data.lastLoginDate : null;
+  merged.loginStreak = (data && Number.isInteger(data.loginStreak)) ? data.loginStreak : 0;
+  merged.bestLoginStreak = (data && Number.isInteger(data.bestLoginStreak)) ? data.bestLoginStreak : 0;
+  merged.unlockedAchievements = Array.isArray(data && data.unlockedAchievements) ? data.unlockedAchievements.slice() : [];
+  merged.hasPerfectMemoryMatch = !!(data && data.hasPerfectMemoryMatch);
+  merged.hasRecallFlawless = !!(data && data.hasRecallFlawless);
   merged.version = SAVE_VERSION;
   return merged;
 }
@@ -873,13 +984,15 @@ function doPrestige(){
   if(!canPrestige()) return;
   const nextLevel = (state.prestigeLevel||0) + 1;
   state.owned = {};
+  state.ownedShiny = {}; // shinies are a variant of an owned creature — reset alongside the collection
   state.coins = defaultSave().coins;
   state.completedSets = [];
   state.bloodCoins = { common:0, rare:0, epic:0, legendary:0 };
   state.memoryUpgradeLevel = 0;
   state.unlockedMinigames = ['memory'];
   state.prestigeLevel = nextLevel;
-  // lifetimeCoins, totalPulls, background/unlockedBackgrounds are intentionally preserved.
+  // lifetimeCoins, totalPulls, pity progress, background/unlockedBackgrounds,
+  // and unlockedAchievements are intentionally preserved.
   persist();
   renderCoins();
   renderCollection();
@@ -889,6 +1002,8 @@ function doPrestige(){
   renderMinigameUnlocks();
   renderPrestigePanel();
   renderPrestigeGates();
+  renderBgShop();
+  checkAchievements();
   document.getElementById('prestigeModal').classList.add('hidden');
   pushPlayerStats();
   toast(`Prestige ${nextLevel} reached! Blood Sacrifice is unlocked and coin gain is up ${Math.round(prestigeCoinMultiplier()*100-100)}%.`);
@@ -1046,7 +1161,9 @@ function finishMemoryGame(){
   const timeBonus = elapsedSec <= 15 ? 30 : elapsedSec <= 30 ? 15 : 0;
   const reward = Math.round((moveReward + timeBonus) * memoryRewardMultiplier());
   addCoins(reward);
+  if(memory.moves <= MEMORY_PAIRS) state.hasPerfectMemoryMatch = true;
   persist();
+  checkAchievements();
   updateMemoryStats();
   memoryResult.classList.remove('hidden');
   memoryResult.innerHTML = `
@@ -1155,7 +1272,9 @@ function finishRecallGame(cleared){
   const roundsCompleted = Math.max(0, cleared ? recall.round : recall.round - 1);
   const reward = recallReward(roundsCompleted);
   if(reward > 0) addCoins(reward);
+  if(cleared) state.hasRecallFlawless = true;
   persist();
+  checkAchievements();
   updateRecallStats(cleared ? 'Perfect run!' : 'Missed it!');
   recallResult.classList.remove('hidden');
   recallResult.innerHTML = `
@@ -1209,8 +1328,11 @@ function creaturePoolForPull(){
   return selectedSetId ? CREATURES.filter(c => c.set === selectedSetId) : CREATURES;
 }
 
-function pullCostSingle(){ return selectedSetId ? PULL_COST.themed.single : PULL_COST.all.single; }
-function pullCostTen(){ return selectedSetId ? PULL_COST.themed.ten : PULL_COST.all.ten; }
+function pullCostMultiplier(){
+  return (state.prestigeLevel||0) >= PRESTIGE_PULL_DISCOUNT_LEVEL ? (1 - PRESTIGE_PULL_DISCOUNT) : 1;
+}
+function pullCostSingle(){ return Math.round((selectedSetId ? PULL_COST.themed.single : PULL_COST.all.single) * pullCostMultiplier()); }
+function pullCostTen(){ return Math.round((selectedSetId ? PULL_COST.themed.ten : PULL_COST.all.ten) * pullCostMultiplier()); }
 
 function weightedRollFromPool(pool){
   const availableRarities = Array.from(new Set(pool.map(c => c.rarity)));
@@ -1224,15 +1346,28 @@ function weightedRollFromPool(pool){
 }
 
 function pullOne(pool){
-  const rarity = weightedRollFromPool(pool);
+  // Pity: if we've gone PITY_THRESHOLD pulls without a Legendary and this
+  // pool actually has one, force it instead of rolling normally.
+  const poolHasLegendary = pool.some(c => c.rarity === 'legendary');
+  const pity = poolHasLegendary && (state.pullsSinceLegendary + 1) >= PITY_THRESHOLD;
+  const rarity = pity ? 'legendary' : weightedRollFromPool(pool);
+  state.pullsSinceLegendary = rarity === 'legendary' ? 0 : state.pullsSinceLegendary + 1;
+
   const rarityPool = pool.filter(c => c.rarity === rarity);
   const creature = rarityPool[Math.floor(Math.random() * rarityPool.length)];
   const wasOwned = !!state.owned[creature.id];
   state.owned[creature.id] = (state.owned[creature.id]||0) + 1;
   state.totalPulls++;
+
+  // Shiny: a small independent chance to also mark this copy as shiny —
+  // shinies still count toward owning the creature (state.owned), this just
+  // layers an extra, rarer flag + sell premium on top.
+  const shiny = Math.random() < SHINY_CHANCE;
+  if(shiny) state.ownedShiny[creature.id] = (state.ownedShiny[creature.id]||0) + 1;
+
   // Duplicates are no longer auto-converted to coins — they join the collection as
   // an extra copy the player can sell manually anytime (see sellOneDuplicate below).
-  return { creature, wasOwned };
+  return { creature, wasOwned, pity, shiny };
 }
 
 /* ---------- SET PICKER + PULL UI ---------- */
@@ -1267,6 +1402,14 @@ function updatePullUI(){
     .map(r => `${RARITIES[r].label} ${Math.round(RARITIES[r].weight / total * 100)}%`)
     .join(' · ');
   document.getElementById('oddsLine').textContent = oddsStr;
+
+  const pityEl = document.getElementById('pityLine');
+  if(pityEl){
+    const remaining = Math.max(0, PITY_THRESHOLD - (state.pullsSinceLegendary||0));
+    pityEl.textContent = remaining <= 10
+      ? `🌟 Pity: guaranteed Legendary within ${remaining} more pull${remaining===1?'':'s'}!`
+      : `Pity: ${state.pullsSinceLegendary||0}/${PITY_THRESHOLD} pulls since your last Legendary.`;
+  }
 }
 
 /* ---------- GACHA MACHINE ANIMATION ---------- */
@@ -1331,7 +1474,9 @@ document.getElementById('pullOneBtn').addEventListener('click', async ()=>{
   renderCoins();
   showSingleReveal(result);
   renderCollection();
+  updatePullUI();
   announceSetCompletions(newlyCompleted);
+  checkAchievements();
   setPullControlsDisabled(false);
 });
 
@@ -1349,7 +1494,9 @@ document.getElementById('pullTenBtn').addEventListener('click', async ()=>{
   renderCoins();
   showMultiReveal(results);
   renderCollection();
+  updatePullUI();
   announceSetCompletions(newlyCompleted);
+  checkAchievements();
   setPullControlsDisabled(false);
 });
 
@@ -1359,10 +1506,11 @@ const revealCard = document.getElementById('revealCard');
 
 function rarityColorVar(rarity){ return RARITIES[rarity].color; }
 
-function showSingleReveal({creature, wasOwned}){
+function showSingleReveal({creature, wasOwned, pity, shiny}){
   revealCard.innerHTML = `
-    <div class="reveal-rarity" style="background:${rarityColorVar(creature.rarity)};color:#1a1330;">${RARITIES[creature.rarity].label}</div>
-    <div class="reveal-emoji" style="color:${rarityColorVar(creature.rarity)}">${creature.emoji}</div>
+    ${shiny ? `<div class="reveal-shiny-badge">✨ SHINY!</div>` : ''}
+    <div class="reveal-rarity" style="background:${rarityColorVar(creature.rarity)};color:#1a1330;">${RARITIES[creature.rarity].label}${pity ? ' · PITY' : ''}</div>
+    <div class="reveal-emoji ${shiny ? 'shiny' : ''}" style="color:${rarityColorVar(creature.rarity)}">${creature.emoji}</div>
     <div class="reveal-name">${creature.name}</div>
     <div class="reveal-flavor">${creature.flavor}</div>
     ${wasOwned ? `<div class="reveal-dupe">Duplicate! Sell it from your Collection anytime for +${RARITIES[creature.rarity].coinValue} 🪙</div>` : `<div class="reveal-dupe" style="color:var(--good);">New to your collection!</div>`}
@@ -1373,16 +1521,17 @@ function showSingleReveal({creature, wasOwned}){
 }
 
 function showMultiReveal(results){
-  const cells = results.map(({creature, wasOwned})=>`
-    <div class="multi-cell" style="border-color:${rarityColorVar(creature.rarity)};color:${rarityColorVar(creature.rarity)}">
-      ${creature.emoji}
+  const cells = results.map(({creature, wasOwned, shiny})=>`
+    <div class="multi-cell ${shiny ? 'shiny' : ''}" style="border-color:${rarityColorVar(creature.rarity)};color:${rarityColorVar(creature.rarity)}">
+      ${shiny ? '✨' : ''}${creature.emoji}
       <div class="nm" style="color:var(--text-dim)">${wasOwned ? 'dupe' : creature.name}</div>
     </div>
   `).join('');
   const newCount = results.filter(r=>!r.wasOwned).length;
+  const shinyCount = results.filter(r=>r.shiny).length;
   revealCard.innerHTML = `
     <div class="reveal-name">10x Pull Results</div>
-    <div class="reveal-flavor">${newCount} new character${newCount===1?'':'s'} found!</div>
+    <div class="reveal-flavor">${newCount} new character${newCount===1?'':'s'} found!${shinyCount ? ` ✨ ${shinyCount} shiny!` : ''}</div>
     <div class="multi-grid">${cells}</div>
     <button class="btn-accent" id="closeRevealBtn">Nice!</button>
   `;
@@ -1393,16 +1542,20 @@ function showMultiReveal(results){
 /* ---------- COLLECTION VIEW ---------- */
 function creatureCardHtml(c){
   const count = state.owned[c.id] || 0;
+  const shinyCount = state.ownedShiny[c.id] || 0;
   const locked = count === 0;
   const sellValue = RARITIES[c.rarity].coinValue;
+  const shinySellValue = sellValue * SHINY_SELL_MULTIPLIER;
   const bloodValue = RARITIES[c.rarity].bloodValue;
   return `
-    <div class="creature-card ${locked?'locked':''}">
+    <div class="creature-card ${locked?'locked':''} ${shinyCount>0 ? 'has-shiny':''}">
       <div class="rarity-tag" style="background:${rarityColorVar(c.rarity)}"></div>
+      ${shinyCount > 0 ? `<div class="shiny-badge">✨x${shinyCount}</div>` : ''}
       <div class="emoji">${locked ? '❔' : c.emoji}</div>
       <div class="nm">${locked ? '???' : c.name}</div>
       <div class="cnt">${locked ? RARITIES[c.rarity].label : 'x' + count}</div>
       ${count > 1 ? `<button class="sell-dupe-btn" data-sell-id="${c.id}">Sell 1 (+${sellValue} 🪙)</button>` : ''}
+      ${shinyCount > 0 && count > 1 ? `<button class="sell-shiny-btn" data-sell-shiny-id="${c.id}">✨ Sell Shiny (+${shinySellValue} 🪙)</button>` : ''}
       ${count > 1 && hasSacrificeUnlocked() ? `<button class="sacrifice-dupe-btn" data-sacrifice-id="${c.id}">Sacrifice 1 (+${bloodValue} 🩸 ${RARITIES[c.rarity].label})</button>` : ''}
     </div>
   `;
@@ -1438,6 +1591,9 @@ function renderCollection(){
   document.getElementById('statPulls').textContent = state.totalPulls;
   document.getElementById('statCoinsEarned').textContent = Math.floor(state.lifetimeCoins).toLocaleString();
   document.getElementById('statSets').textContent = `${state.completedSets.length}/${SETS.length}`;
+  const shinyKindsFound = Object.values(state.ownedShiny).filter(n => n > 0).length;
+  const statShiny = document.getElementById('statShiny');
+  if(statShiny) statShiny.textContent = `${shinyKindsFound}/${CREATURES.length}`;
 
   const hasDupes = CREATURES.some(c => (state.owned[c.id]||0) > 1);
   document.getElementById('sellAllDupesBtn').disabled = !hasDupes;
@@ -1446,18 +1602,44 @@ function renderCollection(){
 }
 
 /* ---------- SELLING DUPLICATES ---------- */
+// Keeps the ownedShiny counter honest whenever owned[id] drops — a copy is
+// never tracked as shiny if there aren't that many total copies left.
+function clampShiny(id){
+  const shinyCount = state.ownedShiny[id] || 0;
+  const ownedCount = state.owned[id] || 0;
+  if(shinyCount > ownedCount) state.ownedShiny[id] = ownedCount;
+}
+
 // Sells exactly one extra copy of a creature for coins. Never sells below the
 // first copy owned — selling only removes surplus duplicates, never your only one.
+// Prefers consuming a non-shiny copy first, so a generic sell doesn't quietly
+// burn a shiny at regular price — use the dedicated Sell Shiny button for that.
 function sellOneDuplicate(id){
   const creature = CREATURES.find(c => c.id === id);
   const count = state.owned[id] || 0;
   if(!creature || count <= 1) return;
   state.owned[id] = count - 1;
+  clampShiny(id);
   const value = RARITIES[creature.rarity].coinValue;
   addCoins(value);
   persist();
   renderCollection();
   toast(`Sold a duplicate ${creature.name} for +${value} 🪙`);
+}
+
+// Sells one shiny copy specifically, at a premium — same floor-of-1 rule.
+function sellOneShiny(id){
+  const creature = CREATURES.find(c => c.id === id);
+  const count = state.owned[id] || 0;
+  const shinyCount = state.ownedShiny[id] || 0;
+  if(!creature || count <= 1 || shinyCount <= 0) return;
+  state.owned[id] = count - 1;
+  state.ownedShiny[id] = shinyCount - 1;
+  const value = RARITIES[creature.rarity].coinValue * SHINY_SELL_MULTIPLIER;
+  addCoins(value);
+  persist();
+  renderCollection();
+  toast(`Sold a ✨ shiny ${creature.name} for +${value} 🪙`);
 }
 
 // Sells every surplus duplicate across the whole collection in one go.
@@ -1469,6 +1651,7 @@ function sellAllDuplicates(){
     if(count > 1){
       const extras = count - 1;
       state.owned[c.id] = 1;
+      clampShiny(c.id);
       total += extras * RARITIES[c.rarity].coinValue;
       sold += extras;
     }
@@ -1490,6 +1673,7 @@ function sacrificeOneDuplicate(id){
   const count = state.owned[id] || 0;
   if(!creature || count <= 1) return;
   state.owned[id] = count - 1;
+  clampShiny(id);
   const value = RARITIES[creature.rarity].bloodValue;
   state.bloodCoins[creature.rarity] = (state.bloodCoins[creature.rarity] || 0) + value;
   persist();
@@ -1511,6 +1695,8 @@ function renderBloodCoins(){
 document.getElementById('collectionGrid').addEventListener('click', (e)=>{
   const sellBtn = e.target.closest('.sell-dupe-btn');
   if(sellBtn){ sellOneDuplicate(sellBtn.dataset.sellId); return; }
+  const sellShinyBtn = e.target.closest('.sell-shiny-btn');
+  if(sellShinyBtn){ sellOneShiny(sellShinyBtn.dataset.sellShinyId); return; }
   const sacBtn = e.target.closest('.sacrifice-dupe-btn');
   if(sacBtn){ sacrificeOneDuplicate(sacBtn.dataset.sacrificeId); return; }
 });
@@ -1571,24 +1757,35 @@ function applyBackground(id){
   document.body.setAttribute('data-bg', id === 'default' ? '' : id);
 }
 
+function isBgUnlocked(bg){
+  if(state.unlockedBackgrounds.includes(bg.id)) return true;
+  if(bg.prestigeRequired && (state.prestigeLevel||0) >= bg.prestigeRequired) return true;
+  return false;
+}
+
 function renderBgShop(){
   const shop = document.getElementById('bgShop');
   if(!shop) return;
   shop.innerHTML = BACKGROUNDS.map(bg=>{
-    const unlocked = state.unlockedBackgrounds.includes(bg.id);
+    const unlocked = isBgUnlocked(bg);
     const active = state.background === bg.id;
     const previewGradients = {
-      default: 'linear-gradient(135deg,#2a1e4d,#0d0a1a)',
-      sunset:  'linear-gradient(135deg,#4d2a1e,#1a0e0d)',
-      forest:  'linear-gradient(135deg,#1e4d33,#0a1a12)',
-      ocean:   'linear-gradient(135deg,#1e3a4d,#0a1420)',
-      aurora:  'linear-gradient(135deg,#2a1e4d,#5cffb0)',
+      default:   'linear-gradient(135deg,#2a1e4d,#0d0a1a)',
+      sunset:    'linear-gradient(135deg,#4d2a1e,#1a0e0d)',
+      forest:    'linear-gradient(135deg,#1e4d33,#0a1a12)',
+      ocean:     'linear-gradient(135deg,#1e3a4d,#0a1420)',
+      aurora:    'linear-gradient(135deg,#2a1e4d,#5cffb0)',
+      celestial: 'linear-gradient(135deg,#1a1330,#ffcf5c,#8f6bff)',
     };
+    const priceLabel = active ? 'Applied'
+      : unlocked ? 'Owned — tap to apply'
+      : bg.prestigeRequired ? `🌟 Prestige ${bg.prestigeRequired} required`
+      : bg.cost + ' 🪙';
     return `
-      <div class="bg-swatch ${active?'active':''}" data-bg-id="${bg.id}">
+      <div class="bg-swatch ${active?'active':''} ${bg.prestigeRequired?'prestige-bg':''}" data-bg-id="${bg.id}">
         <div class="bg-preview" style="background:${previewGradients[bg.id]||previewGradients.default}"></div>
         <div class="bg-name">${bg.name}</div>
-        <div class="bg-price">${active ? 'Applied' : unlocked ? 'Owned — tap to apply' : bg.cost + ' 🪙'}</div>
+        <div class="bg-price">${priceLabel}</div>
       </div>
     `;
   }).join('');
@@ -1597,14 +1794,16 @@ function renderBgShop(){
 function selectOrBuyBackground(id){
   const bg = BACKGROUNDS.find(b => b.id === id);
   if(!bg) return;
-  const unlocked = state.unlockedBackgrounds.includes(id);
+  const unlocked = isBgUnlocked(bg);
   if(unlocked){
+    if(!state.unlockedBackgrounds.includes(id)) state.unlockedBackgrounds.push(id); // e.g. a prestige unlock, record it permanently
     state.background = id;
     applyBackground(id);
     persist();
     renderBgShop();
     return;
   }
+  if(bg.prestigeRequired) return toast(`Reach Prestige ${bg.prestigeRequired} to unlock ${bg.name}.`);
   if(state.coins < bg.cost) return toast(`Not enough coins — ${bg.name} costs ${bg.cost} 🪙.`);
   state.coins -= bg.cost;
   state.unlockedBackgrounds.push(id);
@@ -1993,6 +2192,121 @@ function renderLeaderboard(list){
   `).join('')}</div>`;
 }
 
+/* =========================================================
+   ACHIEVEMENTS — personal milestones, not shown on the public
+   Leaderboard. Checked after any action that could unlock one;
+   unlocked ids are permanent even across a Prestige reset.
+   ========================================================= */
+const ACHIEVEMENTS = [
+  { id:'first_pull',       icon:'✨', name:'First Pull',       desc:'Make your first gacha pull.',
+    check: () => state.totalPulls >= 1 },
+  { id:'first_legendary',  icon:'🌟', name:'Legendary!',       desc:'Pull your first Legendary character.',
+    check: () => CREATURES.some(c => c.rarity==='legendary' && (state.owned[c.id]||0) > 0) },
+  { id:'shiny_hunter',     icon:'💎', name:'Shiny Hunter',     desc:'Pull your first ✨ Shiny character.',
+    check: () => Object.values(state.ownedShiny||{}).some(n => n > 0) },
+  { id:'first_set',        icon:'🧩', name:'Set Complete',     desc:'Complete your first themed set.',
+    check: () => state.completedSets.length >= 1 },
+  { id:'completionist',    icon:'🏆', name:'Completionist',    desc:'Complete all 6 themed sets.',
+    check: () => state.completedSets.length >= SETS.length },
+  { id:'full_house',       icon:'📖', name:'Full House',       desc:'Own all 30 characters at once.',
+    check: () => ownedCreatureCount() >= CREATURES.length },
+  { id:'first_prestige',   icon:'🌠', name:'Reborn',           desc:'Reach Prestige 1.',
+    check: () => (state.prestigeLevel||0) >= 1 },
+  { id:'prestige_master',  icon:'👑', name:'Prestige Master',  desc:'Reach Prestige 5.',
+    check: () => (state.prestigeLevel||0) >= 5 },
+  { id:'memory_perfect',   icon:'🧠', name:'Memory Whiz',      desc:'Clear Memory Match in a perfect 6 moves.',
+    check: () => !!state.hasPerfectMemoryMatch },
+  { id:'recall_flawless',  icon:'🎯', name:'Flawless Recall',  desc:'Clear all 10 rounds of Creature Recall.',
+    check: () => !!state.hasRecallFlawless },
+  { id:'streak_week',      icon:'🔥', name:'Streak Keeper',    desc:'Reach a 7-day login streak.',
+    check: () => (state.bestLoginStreak||0) >= 7 },
+];
+
+function checkAchievements(){
+  const newly = [];
+  ACHIEVEMENTS.forEach(a => {
+    if(!state.unlockedAchievements.includes(a.id) && a.check()){
+      state.unlockedAchievements.push(a.id);
+      newly.push(a);
+    }
+  });
+  if(newly.length){
+    persist();
+    newly.forEach(a => toast(`🏅 Achievement unlocked: ${a.name}!`));
+    renderAchievements();
+  }
+}
+
+function renderAchievements(){
+  const wrap = document.getElementById('achievementsList');
+  const countEl = document.getElementById('achievementsCount');
+  if(!wrap) return;
+  const unlockedCount = ACHIEVEMENTS.filter(a => state.unlockedAchievements.includes(a.id)).length;
+  if(countEl) countEl.textContent = `${unlockedCount}/${ACHIEVEMENTS.length}`;
+  wrap.innerHTML = ACHIEVEMENTS.map(a=>{
+    const unlocked = state.unlockedAchievements.includes(a.id);
+    return `
+      <div class="achievement-card ${unlocked ? 'unlocked' : 'locked'}">
+        <div class="icon">${unlocked ? a.icon : '🔒'}</div>
+        <div class="nm">${a.name}</div>
+        <div class="desc">${a.desc}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* =========================================================
+   DAILY LOGIN STREAK — a small bonus for opening the game on
+   consecutive days. The reward cycles every 7 days but the
+   streak counter itself keeps climbing (see bestLoginStreak,
+   used by the Streak Keeper achievement).
+   ========================================================= */
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function daysBetween(a, b){
+  return Math.round((new Date(b) - new Date(a)) / 86400000);
+}
+
+// Computes what today's bonus WOULD be, without touching state — so a page
+// refresh before claiming never double-awards or skips a day.
+function computeDailyBonus(){
+  const today = todayStr();
+  if(state.lastLoginDate === today) return null; // already claimed today
+  let newStreak;
+  if(state.lastLoginDate){
+    const gap = daysBetween(state.lastLoginDate, today);
+    newStreak = gap === 1 ? (state.loginStreak||0) + 1 : 1; // missed a day (or first ever) resets to day 1
+  }else{
+    newStreak = 1;
+  }
+  const reward = DAILY_STREAK_REWARDS[(newStreak - 1) % DAILY_STREAK_REWARDS.length];
+  return { newStreak, reward };
+}
+
+function claimDailyBonus(pending){
+  state.lastLoginDate = todayStr();
+  state.loginStreak = pending.newStreak;
+  state.bestLoginStreak = Math.max(state.bestLoginStreak||0, pending.newStreak);
+  addCoins(pending.reward);
+  persist();
+  renderCoins();
+  checkAchievements();
+  document.getElementById('dailyBonusModal').classList.add('hidden');
+  toast(`+${pending.reward} 🪙 — Day ${pending.newStreak} streak!`);
+}
+
+function maybeShowDailyBonus(){
+  if(!hasPlayerName()) return; // wait until the name gate resolves first
+  const pending = computeDailyBonus();
+  if(!pending) return;
+  document.getElementById('dailyBonusStreakLabel').textContent = `Day ${pending.newStreak}`;
+  document.getElementById('dailyBonusRewardLabel').textContent = `+${pending.reward} 🪙`;
+  document.getElementById('dailyBonusClaimBtn').onclick = () => claimDailyBonus(pending);
+  document.getElementById('dailyBonusModal').classList.remove('hidden');
+}
+
 /* ---------- NAME GATE — a game name is required before playing ---------- */
 function hasPlayerName(){
   return !!(state.playerName && state.playerName.trim());
@@ -2019,6 +2333,7 @@ function submitNameGate(){
   document.getElementById('nameGateModal').classList.add('hidden');
   pushPlayerStats();
   toast(`Welcome, ${name}!`);
+  maybeShowDailyBonus();
 }
 
 document.getElementById('nameGateInput').addEventListener('input', ()=>{
@@ -2048,10 +2363,16 @@ function init(){
   renderBgShop();
   renderSuggestions(getLocalSuggestions());
   renderLeaderboard([]);
+  renderAchievements();
   setConnBadge(false);
   announceSetCompletions(newlyCompleted);
+  checkAchievements();
 
-  if(!hasPlayerName()) showNameGate();
+  if(!hasPlayerName()){
+    showNameGate();
+  }else{
+    maybeShowDailyBonus();
+  }
 
   const savedConfigRaw = localStorage.getItem(CONFIG_KEY);
   let configToUse = DEFAULT_FIREBASE_CONFIG;
