@@ -62,6 +62,11 @@
     50%{ filter:hue-rotate(0deg) brightness(1.15); }
     100%{ filter:hue-rotate(10deg) brightness(1); }
   }
+  /* Prestige-8 exclusive, added alongside the 8/11/13/15 late-game milestone
+     round (2026-07-24) — a cool blue/violet counterpart to Celestial's gold,
+     static rather than animated so it doesn't read as a duplicate of it. */
+  body[data-bg="nebula"]{ --bg-2:#0a0f24; --accent:#7cd9ff; --accent-2:#c15cff; }
+  body[data-bg="nebula"]{ background-image:radial-gradient(circle at 25% 20%, #1b2a6b 0%, var(--bg-2) 50%, #0a0f24 100%), radial-gradient(circle at 75% 80%, rgba(124,217,255,.25) 0%, transparent 45%); }
   *{box-sizing:border-box;}
   html,body{height:100%;}
   body{
@@ -268,6 +273,8 @@
   .stat-chip{background:var(--panel-2);border-radius:10px;padding:8px 14px;font-size:12px;color:var(--text-dim);}
   .stat-chip b{color:var(--text);font-size:15px;display:block;}
   .sell-all-btn{margin-left:auto;padding:8px 14px;font-size:13px;}
+  .sacrifice-all-btn{padding:8px 14px;font-size:13px;background:linear-gradient(135deg,#8a1c3a,#c1305c);color:#ffe3ec;}
+  .sacrifice-all-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 18px rgba(193,48,92,.4);}
   .sell-all-btn:disabled{opacity:.35;}
   .dupe-hint{font-size:11px;color:var(--text-dim);margin:-6px 0 14px;}
   .collection-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;}
@@ -545,6 +552,7 @@
         <div class="stat-chip"><b id="statCoinsEarned">0</b>Lifetime coins</div>
         <div class="stat-chip"><b id="statShiny">0/0</b>✨ Shinies found</div>
         <button class="btn-gold sell-all-btn" id="sellAllDupesBtn">🪙 Sell all duplicates</button>
+        <button class="btn-gold sacrifice-all-btn hidden" id="sacrificeAllDupesBtn">🩸 Sacrifice all duplicates</button>
       </div>
       <div class="dupe-hint" id="collectionDupeHint">Own more than one of a character? Sell the extras for quick coins, or sacrifice them for blood coins to spend on minigame upgrades (⚙️ see the Pull tab).</div>
       <div class="blood-coin-strip hidden" id="bloodCoinStripCollection"></div>
@@ -605,6 +613,7 @@
               <div id="prestigeReqCoins">❌ Have 5,000 🪙 banked (0/5,000)</div>
             </div>
             <div class="prestige-milestones">🌟 P1: Blood Sacrifice · P3: exclusive Celestial background · P5: −20% pull costs, forever</div>
+            <div class="prestige-milestones">🌟 P8: exclusive Nebula background · P11: additional −10% pull costs (−30% total) · P13: +25% idle income · P15: unlocks the Sacrifice All button</div>
             <div class="prestige-milestones" id="prestigeShinyLine">✨ Shiny chance rises +0.5% per Prestige level (capped at 10%) — currently 2%</div>
           </div>
           <button class="btn-accent prestige-btn" id="prestigeNowBtn" disabled>Prestige now</button>
@@ -841,6 +850,12 @@ const RECALL_UPGRADE_LEVELS = [
 // ahead of BACKGROUNDS, since that array references it directly; the rest of
 // the Prestige constants live further down near CREATURES/PRESTIGE_REQUIRED_*).
 const PRESTIGE_CELESTIAL_BG_LEVEL = 3;
+// Prestige milestone that unlocks the Nebula background — added 2026-07-24
+// per direct user request to fill in more late-game Prestige rewards between
+// the existing P5 and a new P15 milestone (see PRESTIGE_SACRIFICE_ALL_LEVEL
+// further down). Declared here for the same reason as the Celestial constant
+// above — BACKGROUNDS references it directly.
+const PRESTIGE_NEBULA_BG_LEVEL = 8;
 
 // Purchasable background themes (bought with regular coins, per Th3C0olK11d's
 // suggestion that backgrounds "could instead be normal coins"). Each swaps a
@@ -854,6 +869,8 @@ const BACKGROUNDS = [
   // Prestige-exclusive — can't be bought with coins, unlocks automatically
   // once the milestone is reached (see PRESTIGE_CELESTIAL_BG_LEVEL).
   { id:'celestial', name:'Celestial',       cost:0, prestigeRequired: PRESTIGE_CELESTIAL_BG_LEVEL },
+  // Second Prestige-exclusive background — see PRESTIGE_NEBULA_BG_LEVEL above.
+  { id:'nebula',    name:'Nebula',          cost:0, prestigeRequired: PRESTIGE_NEBULA_BG_LEVEL },
 ];
 
 // Themed collections — group characters into sets. Collecting every member
@@ -964,9 +981,26 @@ const PRESTIGE_REQUIRED_COINS = 5000;                  // and bank this many coi
 const PRESTIGE_COIN_BONUS_PER_LEVEL = 0.10;            // +10% coin gain per prestige level, stacking
 // Prestige milestone unlocks — beyond level 1's Blood Sacrifice gate, later
 // levels unlock their own rewards so climbing Prestige keeps meaning something.
-// (PRESTIGE_CELESTIAL_BG_LEVEL is declared earlier, next to BACKGROUNDS.)
+// (PRESTIGE_CELESTIAL_BG_LEVEL and PRESTIGE_NEBULA_BG_LEVEL are declared
+// earlier, next to BACKGROUNDS.)
 const PRESTIGE_PULL_DISCOUNT_LEVEL = 5;  // unlocks a permanent discount on all pull costs
 const PRESTIGE_PULL_DISCOUNT = 0.20;     // -20% pull costs once reached
+// Added 2026-07-24, direct user request: fill in more late-game Prestige
+// rewards between the existing P5 and P15 milestones (P15 = Sacrifice All,
+// see PRESTIGE_SACRIFICE_ALL_LEVEL below). PRESTIGE_NEBULA_BG_LEVEL (8) is
+// the first of the three "more rewards between 5-15" the user asked for;
+// these two are the other two. Exact levels/numbers are a Claude judgment
+// call — the user specified the endpoints (5-15) and the count (3 more) but
+// not which levels or what they'd grant.
+const PRESTIGE_PULL_DISCOUNT2_LEVEL = 11; // a second, stacking pull-cost discount
+const PRESTIGE_PULL_DISCOUNT2 = 0.10;     // additional -10% (total -30% pull costs at P11+)
+const PRESTIGE_IDLE_BOOST_LEVEL = 13;     // a permanent boost to passive idle coin income
+const PRESTIGE_IDLE_BOOST = 0.25;         // +25% idle income once reached
+// Direct user request (2026-07-24): the bulk "Sacrifice all duplicates"
+// button (built this same round for the "sacrifice all button" suggestion)
+// should be a genuine late-game reward, not available from Prestige 1 like
+// the per-card sacrifice buttons and the rest of the Blood Sacrifice economy.
+const PRESTIGE_SACRIFICE_ALL_LEVEL = 15;
 
 // Pity system: guarantees a Legendary within PITY_THRESHOLD pulls of your last
 // one, so bad luck can never stretch on indefinitely. Counter is global (not
@@ -1103,6 +1137,10 @@ function idleRatePerSecond(){
     const c = CREATURES.find(c=>c.id===id);
     if(c) perMin += RARITIES[c.rarity].idlePerMin;
   }
+  // Prestige-13 milestone (added 2026-07-24, direct user request): a
+  // permanent boost to passive idle income, stacking with the regular
+  // per-level coin multiplier applied later in addCoins().
+  if((state.prestigeLevel||0) >= PRESTIGE_IDLE_BOOST_LEVEL) perMin *= (1 + PRESTIGE_IDLE_BOOST);
   return perMin / 60;
 }
 
@@ -1120,6 +1158,14 @@ function ownedCreatureCount(){
 
 function hasSacrificeUnlocked(){
   return (state.prestigeLevel||0) >= 1;
+}
+
+// Gate for the bulk "Sacrifice all duplicates" button specifically — a
+// separate, later milestone from the base Blood Sacrifice unlock above (see
+// PRESTIGE_SACRIFICE_ALL_LEVEL). Per-card sacrifice buttons still only need
+// hasSacrificeUnlocked() (Prestige 1); this one gates the convenience button.
+function hasSacrificeAllUnlocked(){
+  return (state.prestigeLevel||0) >= PRESTIGE_SACRIFICE_ALL_LEVEL;
 }
 
 function prestigeCoinMultiplier(){
@@ -1494,8 +1540,14 @@ function creaturePoolForPull(){
   return selectedSetId ? CREATURES.filter(c => c.set === selectedSetId) : CREATURES;
 }
 
+// Two stacking flat discounts rather than compounding multipliers, so the
+// totals stay easy to state in the UI: -20% at P5, -30% total at P11+.
 function pullCostMultiplier(){
-  return (state.prestigeLevel||0) >= PRESTIGE_PULL_DISCOUNT_LEVEL ? (1 - PRESTIGE_PULL_DISCOUNT) : 1;
+  const lvl = state.prestigeLevel||0;
+  let discount = 0;
+  if(lvl >= PRESTIGE_PULL_DISCOUNT_LEVEL) discount += PRESTIGE_PULL_DISCOUNT;
+  if(lvl >= PRESTIGE_PULL_DISCOUNT2_LEVEL) discount += PRESTIGE_PULL_DISCOUNT2;
+  return 1 - discount;
 }
 function pullCostSingle(){ return Math.round((selectedSetId ? PULL_COST.themed.single : PULL_COST.all.single) * pullCostMultiplier()); }
 function pullCostTen(){ return Math.round((selectedSetId ? PULL_COST.themed.ten : PULL_COST.all.ten) * pullCostMultiplier()); }
@@ -2028,6 +2080,9 @@ function renderCollection(){
 
   const hasDupes = CREATURES.some(c => (state.owned[c.id]||0) > 1);
   document.getElementById('sellAllDupesBtn').disabled = !hasDupes;
+  const sacrificeAllBtn = document.getElementById('sacrificeAllDupesBtn');
+  sacrificeAllBtn.classList.toggle('hidden', !hasSacrificeAllUnlocked());
+  sacrificeAllBtn.disabled = !hasDupes;
   renderBloodCoins();
   renderPrestigePanel();
 }
@@ -2094,6 +2149,38 @@ function sellAllDuplicates(){
   toast(`Sold ${sold} duplicate${sold===1?'':'s'} for +${total} 🪙`);
 }
 
+// Sacrifices every surplus duplicate across the whole collection in one go,
+// mirroring sellAllDuplicates() but paying out blood coins of each creature's
+// rarity type instead of regular coins. Gated behind a later Prestige
+// milestone than the per-card sacrifice button (see PRESTIGE_SACRIFICE_ALL_LEVEL)
+// — a deliberate late-game reward, not available from Prestige 1.
+function sacrificeAllDuplicates(){
+  if(!hasSacrificeAllUnlocked()) return toast(`Reach Prestige ${PRESTIGE_SACRIFICE_ALL_LEVEL} to unlock Sacrifice All.`);
+  const totals = {};
+  let sacrificed = 0;
+  CREATURES.forEach(c=>{
+    const count = state.owned[c.id] || 0;
+    if(count > 1){
+      const extras = count - 1;
+      state.owned[c.id] = 1;
+      clampShiny(c.id);
+      totals[c.rarity] = (totals[c.rarity] || 0) + extras * RARITIES[c.rarity].bloodValue;
+      sacrificed += extras;
+    }
+  });
+  if(sacrificed === 0) return toast("No duplicates to sacrifice right now.");
+  Object.entries(totals).forEach(([rarity, amt]) => {
+    state.bloodCoins[rarity] = (state.bloodCoins[rarity] || 0) + amt;
+  });
+  persist();
+  renderCollection();
+  renderUpgradePanel();
+  renderMinigameUnlocks();
+  renderRecallUpgradePanel();
+  const summary = Object.entries(totals).map(([r,a]) => `+${a} 🩸${RARITIES[r].label}`).join(', ');
+  toast(`Sacrificed ${sacrificed} duplicate${sacrificed===1?'':'s'} for ${summary}`);
+}
+
 /* ---------- SACRIFICING DUPLICATES FOR BLOOD COINS ---------- */
 // Sacrifices exactly one extra copy of a creature for blood coins of that
 // rarity's type, instead of regular coins. Same floor-of-1 rule as selling —
@@ -2136,6 +2223,7 @@ document.getElementById('collectionGrid').addEventListener('click', (e)=>{
 });
 
 document.getElementById('sellAllDupesBtn').addEventListener('click', sellAllDuplicates);
+document.getElementById('sacrificeAllDupesBtn').addEventListener('click', sacrificeAllDuplicates);
 
 /* ---------- MEMORY MATCH UPGRADE (spent with blood coins) ---------- */
 function memoryRewardMultiplier(){
@@ -2262,6 +2350,7 @@ function renderBgShop(){
       ocean:     'linear-gradient(135deg,#1e3a4d,#0a1420)',
       aurora:    'linear-gradient(135deg,#2a1e4d,#5cffb0)',
       celestial: 'linear-gradient(135deg,#1a1330,#ffcf5c,#8f6bff)',
+      nebula:    'linear-gradient(135deg,#0a0f24,#7cd9ff,#c15cff)',
     };
     const priceLabel = active ? 'Applied'
       : unlocked ? 'Owned — tap to apply'
