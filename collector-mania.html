@@ -989,7 +989,10 @@ function currentShinyChance(){
 }
 
 // Daily login streak — reward cycles every 7 days but the streak counter
-// itself keeps climbing (tracked for the Streak Keeper achievement).
+// itself keeps climbing. bestLoginStreak below no longer drives an
+// achievement (see ACHIEVEMENTS' streak_week entry, repurposed 2026-07-23),
+// but is still tracked as a harmless historical stat in case it's useful
+// again later.
 const DAILY_STREAK_REWARDS = [50, 75, 100, 125, 150, 175, 250];
 
 // Shared family Firebase project — every player connects here automatically,
@@ -1026,7 +1029,7 @@ function defaultSave(){
     ownedShiny: {},              // id -> count of shiny copies owned (subset of owned[id])
     lastLoginDate: null,         // 'YYYY-MM-DD' of the last claimed daily bonus
     loginStreak: 0,              // current consecutive-day streak
-    bestLoginStreak: 0,          // highest streak ever reached, for the Streak Keeper achievement
+    bestLoginStreak: 0,          // highest streak ever reached (historical stat; no longer feeds an achievement)
     unlockedAchievements: [],    // achievement ids already unlocked
     hasPerfectMemoryMatch: false,// cleared Memory Match in the minimum 6 moves
     hasRecallFlawless: false,    // cleared all 10 Creature Recall rounds
@@ -2730,8 +2733,14 @@ const ACHIEVEMENTS = [
     check: () => !!state.hasPerfectMemoryMatch },
   { id:'recall_flawless',  icon:'🎯', name:'Flawless Recall',  desc:'Clear all 10 rounds of Creature Recall.',
     check: () => !!state.hasRecallFlawless },
-  { id:'streak_week',      icon:'🔥', name:'Streak Keeper',    desc:'Reach a 7-day login streak.',
-    check: () => (state.bestLoginStreak||0) >= 7 },
+  // Originally "Streak Keeper" (reach a 7-day login streak). Changed
+  // 2026-07-23 per a suggestion-board request to a much harder endgame
+  // challenge instead — owning a shiny copy of every single creature at
+  // once. The id is deliberately left unchanged so anyone who already
+  // unlocked it under the old 7-day-streak rule keeps it; only the
+  // requirement for newly unlocking it going forward has changed.
+  { id:'streak_week',      icon:'💫', name:'Full Shine',       desc:`Own a ✨ Shiny copy of all ${CREATURES.length} characters at once.`,
+    check: () => CREATURES.every(c => (state.ownedShiny[c.id]||0) > 0) },
 ];
 
 function checkAchievements(){
@@ -2771,8 +2780,9 @@ function renderAchievements(){
 /* =========================================================
    DAILY LOGIN STREAK — a small bonus for opening the game on
    consecutive days. The reward cycles every 7 days but the
-   streak counter itself keeps climbing (see bestLoginStreak,
-   used by the Streak Keeper achievement).
+   streak counter itself keeps climbing (see bestLoginStreak —
+   a historical stat only as of 2026-07-23; it no longer drives
+   an achievement, see ACHIEVEMENTS' streak_week entry).
    ========================================================= */
 function todayStr(){
   const d = new Date();
