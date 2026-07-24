@@ -23,6 +23,7 @@
     --legendary:#ffb14e;
     --elder:#4fae8a;
     --mythic:#ff4f81;
+    --divine:#fff3c4;
     --radius:14px;
   }
   /* Purchasable background themes — swap the ambient gradient + accent glow.
@@ -40,6 +41,53 @@
   body[data-bg="ocean"]{ background-image:radial-gradient(circle at 20% 10%, #1e3a4d 0%, var(--bg-2) 55%); }
   body[data-bg="aurora"]{ --bg-2:#0f0a1f; --accent:#5cffb0; --accent-2:#c15cff; }
   body[data-bg="aurora"]{ background-image:radial-gradient(circle at 20% 10%, #2a1e4d 0%, var(--bg-2) 55%, #0f0a1f 100%); }
+  /* Per board suggestion (2026-07-24, John D Smither): "Make some backgrounds
+     actually animated/moving." Celestial already animated (see below); this
+     extends the same fixed-::before-overlay technique (z-index:-1, in front
+     of body's own background, behind all real content) to the four other
+     purchasable themes, each with its own slow, thematically-fitting drift
+     so they read as distinct rather than a copy-pasted effect. */
+  body[data-bg="sunset"]::before{
+    content:"";
+    position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background-image:radial-gradient(circle at 30% 20%, rgba(255,157,92,.32) 0%, transparent 45%), radial-gradient(circle at 70% 78%, rgba(255,92,122,.28) 0%, transparent 50%);
+    animation: sunsetDrift 11s ease-in-out infinite alternate;
+  }
+  @keyframes sunsetDrift{
+    0%{ transform:translate(-2%,-1%); filter:brightness(1); }
+    100%{ transform:translate(2%,1%); filter:brightness(1.15); }
+  }
+  body[data-bg="forest"]::before{
+    content:"";
+    position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background-image:radial-gradient(circle at 25% 15%, rgba(92,255,157,.28) 0%, transparent 45%), radial-gradient(circle at 75% 80%, rgba(143,255,92,.2) 0%, transparent 50%);
+    animation: forestSway 10s ease-in-out infinite alternate;
+  }
+  @keyframes forestSway{
+    0%{ transform:translateX(-2.5%) rotate(-0.4deg); }
+    100%{ transform:translateX(2.5%) rotate(0.4deg); }
+  }
+  body[data-bg="ocean"]::before{
+    content:"";
+    position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background-image:radial-gradient(circle at 20% 25%, rgba(92,184,255,.3) 0%, transparent 45%), radial-gradient(circle at 80% 75%, rgba(92,255,224,.24) 0%, transparent 50%);
+    animation: oceanWave 8s ease-in-out infinite alternate;
+  }
+  @keyframes oceanWave{
+    0%{ transform:translateY(-2.5%) scaleY(1); }
+    100%{ transform:translateY(2.5%) scaleY(1.03); }
+  }
+  body[data-bg="aurora"]::before{
+    content:"";
+    position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background-image:radial-gradient(circle at 30% 20%, rgba(92,255,176,.3) 0%, transparent 45%), radial-gradient(circle at 70% 65%, rgba(193,92,255,.26) 0%, transparent 50%);
+    animation: auroraWave 13s ease-in-out infinite alternate;
+  }
+  @keyframes auroraWave{
+    0%{ transform:translateX(-3%) translateY(-1%); filter:hue-rotate(-15deg); }
+    50%{ transform:translateX(1%) translateY(1%); filter:hue-rotate(0deg); }
+    100%{ transform:translateX(3%) translateY(-1%); filter:hue-rotate(15deg); }
+  }
   body[data-bg="celestial"]{ --bg-2:#0d0a1a; --accent:#ffcf5c; --accent-2:#8f6bff; }
   body[data-bg="celestial"]{ background-image:radial-gradient(circle at 20% 10%, #4a3580 0%, var(--bg-2) 45%, #1a1330 100%), radial-gradient(circle at 80% 85%, rgba(255,207,92,.25) 0%, transparent 40%); }
   /* Per a board suggestion (2026-07-23): Celestial constantly shifts color,
@@ -67,6 +115,20 @@
      static rather than animated so it doesn't read as a duplicate of it. */
   body[data-bg="nebula"]{ --bg-2:#0a0f24; --accent:#7cd9ff; --accent-2:#c15cff; }
   body[data-bg="nebula"]{ background-image:radial-gradient(circle at 25% 20%, #1b2a6b 0%, var(--bg-2) 50%, #0a0f24 100%), radial-gradient(circle at 75% 80%, rgba(124,217,255,.25) 0%, transparent 45%); }
+  /* Was previously static (deliberately, to not read as a duplicate of
+     Celestial's animation) — now given its own slow drift/pulse per the same
+     2026-07-24 "animate the backgrounds" suggestion, distinct from Celestial's
+     hue-rotate by using scale+translate drift instead of color shifting. */
+  body[data-bg="nebula"]::before{
+    content:"";
+    position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background-image:radial-gradient(circle at 25% 25%, rgba(124,217,255,.26) 0%, transparent 45%), radial-gradient(circle at 75% 75%, rgba(193,92,255,.24) 0%, transparent 50%);
+    animation: nebulaDrift 14s ease-in-out infinite alternate;
+  }
+  @keyframes nebulaDrift{
+    0%{ transform:scale(1) translate(-2%,-2%); }
+    100%{ transform:scale(1.06) translate(2%,2%); }
+  }
   *{box-sizing:border-box;}
   html,body{height:100%;}
   body{
@@ -256,6 +318,31 @@
   .memory-result{margin-top:16px;font-size:14px;line-height:1.6;}
   .memory-result .reward{font-size:20px;font-weight:800;color:var(--gold);margin:4px 0 12px;}
 
+  /* DIVINE TRIAL — a shrinking-ring target the player must click before the
+     ring closes; position is randomized per round by JS (see divineNextRound). */
+  .divine-trial-arena{
+    position:relative;width:100%;height:220px;border-radius:14px;
+    background:radial-gradient(circle at 50% 30%, rgba(255,243,196,.1), transparent 60%), var(--bg-2);
+    border:1px dashed var(--line);overflow:hidden;
+  }
+  .divine-target{
+    position:absolute;width:54px;height:54px;border-radius:50%;padding:0;
+    background:radial-gradient(circle at 35% 30%, #fff9e6, var(--divine) 55%, #b89b3a 100%);
+    border:3px solid #fff3c4;box-shadow:0 0 16px rgba(255,243,196,.6);
+    cursor:pointer;
+  }
+  .divine-target:disabled{cursor:default;}
+  .divine-target.hit{animation:divineHitPop .3s ease;}
+  @keyframes divineShrink{
+    0%{ transform:scale(1); opacity:1; box-shadow:0 0 20px rgba(255,243,196,.8); }
+    100%{ transform:scale(0.15); opacity:.35; box-shadow:0 0 4px rgba(255,243,196,.2); }
+  }
+  @keyframes divineHitPop{
+    0%{ transform:scale(1); }
+    50%{ transform:scale(1.5); opacity:.6; }
+    100%{ transform:scale(1.5); opacity:0; }
+  }
+
   /* CREATURE RECALL */
   .recall-grid{grid-template-columns:repeat(3,1fr);}
   .memory-cell.recall-active{
@@ -351,6 +438,60 @@
   .upgrade-buy-btn{padding:8px 14px;font-size:12px;background:linear-gradient(135deg,#8a1c3a,#c1305c);color:#ffe3ec;}
   .upgrade-buy-btn:disabled{opacity:.35;}
   .upgrade-maxed{font-size:12px;color:var(--good);font-weight:700;}
+
+  /* TRADING */
+  .trade-form{display:flex;flex-direction:column;gap:10px;}
+  .trade-form label{font-size:11px;color:var(--text-dim);display:block;margin-bottom:3px;}
+  .trade-form select, .trade-form input, .trade-form textarea{
+    width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--line);
+    border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;
+  }
+  .trade-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media (max-width:520px){ .trade-cols{grid-template-columns:1fr;} }
+  .trade-col-title{font-size:12px;font-weight:700;color:var(--gold);margin-bottom:4px;}
+  .trade-currency-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .trade-card-picker{
+    display:flex;flex-wrap:wrap;gap:6px;max-height:140px;overflow-y:auto;
+    padding:8px;background:var(--bg-2);border:1px solid var(--line);border-radius:8px;
+  }
+  .trade-card-chip{
+    display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;
+    background:var(--panel-2);border:1px solid var(--line);font-size:12px;cursor:pointer;user-select:none;
+  }
+  .trade-card-chip input{width:auto;margin:0;}
+  .trade-card-chip.checked{border-color:var(--accent);background:rgba(143,107,255,.2);}
+  .trade-list{display:flex;flex-direction:column;gap:10px;margin-top:8px;}
+  .trade-list:empty::after{content:"Nothing here yet.";font-size:12px;color:var(--text-dim);}
+  .trade-entry{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13px;
+  }
+  .trade-entry .trade-parties{font-weight:700;margin-bottom:6px;}
+  .trade-entry .trade-side{font-size:12px;color:var(--text-dim);margin:2px 0;}
+  .trade-entry .trade-status{
+    display:inline-block;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;
+    background:var(--panel);margin-left:6px;text-transform:uppercase;letter-spacing:.4px;
+  }
+  .trade-entry .trade-status.pending{color:var(--gold);}
+  .trade-entry .trade-status.accepted, .trade-entry .trade-status.completed{color:var(--good);}
+  .trade-entry .trade-status.declined, .trade-entry .trade-status.cancelled{color:var(--mythic);}
+  .trade-entry .trade-status.active{color:var(--rare);}
+  .trade-entry .trade-status.finished{color:var(--gold);}
+  .trade-entry .trade-actions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
+
+  /* PVP */
+  .pvp-hp-row{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+  .pvp-hp-bar{position:relative;height:22px;border-radius:999px;background:var(--bg-2);border:1px solid var(--line);overflow:hidden;}
+  .pvp-hp-fill{position:absolute;inset:0;width:100%;background:linear-gradient(90deg,var(--good),#3ed98f);transition:width .3s ease;}
+  .pvp-hp-fill.opp{background:linear-gradient(90deg,var(--mythic),#c1305c);}
+  .pvp-hp-label{position:relative;z-index:1;font-size:11px;font-weight:700;line-height:22px;text-align:center;text-shadow:0 1px 2px rgba(0,0,0,.6);}
+  .pvp-boards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+  .pvp-board{display:flex;flex-direction:column;gap:4px;min-height:60px;background:var(--bg-2);border:1px dashed var(--line);border-radius:8px;padding:6px;}
+  .pvp-board:empty::after{content:"empty";font-size:11px;color:var(--text-dim);}
+  .pvp-unit{display:flex;justify-content:space-between;gap:6px;font-size:11px;background:var(--panel-2);border-radius:6px;padding:4px 8px;}
+  .pvp-unit.charging{opacity:.6;font-style:italic;}
+  .pvp-unit .nm{font-weight:700;}
+  .pvp-action-btn{font-size:12px;padding:6px 10px;margin:3px 4px 3px 0;}
+  .pvp-log{max-height:120px;overflow-y:auto;font-size:11px;color:var(--text-dim);background:var(--bg-2);border-radius:8px;padding:8px;margin-top:10px;line-height:1.6;}
 
   /* BACKGROUND SHOP */
   .bg-shop{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:10px;}
@@ -544,6 +685,8 @@
     <button class="active" data-view="pull">✨ Pull</button>
     <button data-view="collection">📖 Collection</button>
     <button data-view="leaderboard">🏆 Leaderboard</button>
+    <button data-view="trade">🔁 Trade</button>
+    <button data-view="pvp">⚔️ PvP</button>
     <button data-view="achievements">🏅 Achievements</button>
     <button data-view="suggest">💡 Suggestions</button>
     <button data-view="settings">⚙️ Settings</button>
@@ -639,6 +782,97 @@
       </div>
       <div class="leaderboard-hint">Ranked by Prestige, then by coins. Updates live as everyone plays — refresh anytime to see the latest.</div>
       <div id="leaderboardList"></div>
+    </div>
+  </div>
+
+  <!-- TRADE VIEW — per board suggestion (Anonymous): trade cards/currency
+       with other players, async via the `trades` Firestore collection (each
+       side applies their own half of an accepted trade on their own device —
+       see resolveAcceptedTrade). -->
+  <div class="view" id="view-trade">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+        <h3>🔁 Trade</h3>
+        <span class="conn-badge off" id="tradeConnBadge"><span class="dot"></span><span id="tradeConnText">Offline mode</span></span>
+      </div>
+      <div class="leaderboard-hint">Trade cards, coins, blood coins, and Lucky Charms with other players. Prestige Points can only be sent by a Prestige 5+ player. Unlocks permanently at Prestige 1.</div>
+      <div id="tradeLockedNotice" class="minigame-unlock hidden">
+        <div class="unlock-desc">🔒 <b>Trading</b> — reach Prestige 1 to unlock trading with other players.</div>
+      </div>
+      <div id="tradeBody" class="hidden">
+        <div class="upgrade-panel" id="tradeNewPanel">
+          <h3>New trade offer</h3>
+          <div class="trade-form" id="tradeForm"></div>
+        </div>
+        <div class="upgrade-panel">
+          <h3>📥 Incoming offers</h3>
+          <div id="tradeIncomingList" class="trade-list"></div>
+        </div>
+        <div class="upgrade-panel">
+          <h3>📤 Sent offers</h3>
+          <div id="tradeOutgoingList" class="trade-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PVP VIEW — per board suggestion (B|_O0Df!3#d): deck-built card battles,
+       async turn-based via the `duels` Firestore collection. -->
+  <div class="view" id="view-pvp">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+        <h3>⚔️ PvP Battles</h3>
+        <span class="conn-badge off" id="pvpConnBadge"><span class="dot"></span><span id="pvpConnText">Offline mode</span></span>
+      </div>
+      <div class="leaderboard-hint">Build a deck from your collection (1 Sentinel/Elder + 3 Effect/Mythic + 6 Attack cards), then challenge another player to a turn-based duel.</div>
+
+      <div class="upgrade-panel">
+        <h3>🃏 Your deck</h3>
+        <div id="pvpDeckStatus" style="font-size:12px;color:var(--text-dim);margin-bottom:8px;"></div>
+        <div class="trade-form" id="pvpDeckBuilder"></div>
+      </div>
+
+      <div class="upgrade-panel" id="pvpChallengePanel">
+        <h3>🎯 Challenge a player</h3>
+        <div class="trade-form" id="pvpChallengeForm"></div>
+      </div>
+
+      <div class="upgrade-panel">
+        <h3>📥 Incoming challenges</h3>
+        <div id="pvpIncomingList" class="trade-list"></div>
+      </div>
+      <div class="upgrade-panel">
+        <h3>⚔️ Active &amp; past duels</h3>
+        <div id="pvpDuelList" class="trade-list"></div>
+      </div>
+
+      <div class="modal-backdrop hidden" id="pvpBattleModal">
+        <div class="memory-card" style="max-width:520px;">
+          <div class="memory-header">
+            <div>
+              <div class="memory-title">⚔️ Duel — <span id="pvpBattleTitle"></span></div>
+              <div class="memory-sub" id="pvpBattleTurnNote"></div>
+            </div>
+            <button class="btn-ghost" id="pvpBattleCloseBtn">✕</button>
+          </div>
+          <div class="pvp-hp-row">
+            <div class="pvp-hp-bar"><div class="pvp-hp-label" id="pvpMyHpLabel">You: 1000/1000</div><div class="pvp-hp-fill" id="pvpMyHpFill"></div></div>
+            <div class="pvp-hp-bar"><div class="pvp-hp-label" id="pvpOppHpLabel">Opponent: 1000/1000</div><div class="pvp-hp-fill opp" id="pvpOppHpFill"></div></div>
+          </div>
+          <div class="pvp-boards">
+            <div>
+              <div class="trade-col-title">Your board</div>
+              <div id="pvpMyBoard" class="pvp-board"></div>
+            </div>
+            <div>
+              <div class="trade-col-title">Opponent board</div>
+              <div id="pvpOppBoard" class="pvp-board"></div>
+            </div>
+          </div>
+          <div id="pvpActionPanel"></div>
+          <div class="pvp-log" id="pvpLog"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -838,6 +1072,27 @@
   </div>
 </div>
 
+<!-- DIVINE TRIAL MODAL — mandatory skill-check gate on a Divine-ranked pull.
+     Deliberately has no close/skip button (see JS comment above
+     startDivineTrial). -->
+<div class="modal-backdrop hidden" id="divineModal">
+  <div class="memory-card">
+    <div class="memory-header">
+      <div>
+        <div class="memory-title">🌌 Divine Trial — <span id="divineIntroName"></span></div>
+        <div class="memory-sub">A Divine pull has been detected! Land every rapid skill check to keep it — miss even one and it's gone.</div>
+      </div>
+    </div>
+    <div class="memory-stats">
+      <div class="stat-chip"><b id="divineRound">1/5</b>Check</div>
+    </div>
+    <div class="divine-trial-arena" id="divineArena">
+      <button class="divine-target" id="divineTarget"></button>
+    </div>
+    <div class="memory-result hidden" id="divineResult"></div>
+  </div>
+</div>
+
 <!-- PRESTIGE MODAL -->
 <div class="modal-backdrop hidden" id="prestigeModal">
   <div class="memory-card">
@@ -937,8 +1192,18 @@ const RARITIES = {
   legendary: { label:'Legendary', color:'var(--legendary)', weight:7,  coinValue:60,  idlePerMin:20, bloodValue:4 },
   elder:     { label:'Elder',     color:'var(--elder)',     weight:3,  coinValue:100, idlePerMin:35, bloodValue:5 },
   mythic:    { label:'Mythic',    color:'var(--mythic)',    weight:1,  coinValue:250, idlePerMin:80, bloodValue:8 },
+  // Divine: per board suggestion (Paul, 2026-07-24) — "a section of extremely
+  // hard to find divine ranked cards." Sits above Mythic, deliberately never
+  // added to SETS/given a set chip, so its 3 members (see CREATURES below)
+  // only ever surface from an "All Characters" pull, never a themed one —
+  // matching "a section" rather than being folded into every existing set.
+  // Weight 0.03 vs Mythic's 1 (out of ~100 total) puts it around a 1-in-3300
+  // pull, deliberately far rarer than any other tier. Pulling one doesn't
+  // grant it outright — see DIVINE_TRIAL_ROUNDS below, it's gated behind a
+  // mandatory skill-check trial per the suggestion.
+  divine:    { label:'Divine',    color:'var(--divine)',    weight:0.03, coinValue:2000, idlePerMin:400, bloodValue:15 },
 };
-const BLOOD_ICON = { common:'🩸', rare:'🩸', epic:'🩸', legendary:'🩸', elder:'🩸', mythic:'🩸' };
+const BLOOD_ICON = { common:'🩸', rare:'🩸', epic:'🩸', legendary:'🩸', elder:'🩸', mythic:'🩸', divine:'🩸' };
 
 // Sacrificing a duplicate burns it for "blood coins" of that rarity's type
 // instead of regular coins — a slower-burning currency spent on minigame
@@ -1010,6 +1275,7 @@ const SETS = [
   { id:'ember',  name:'Ember & Ash',     icon:'🔥', blurb:'Warm to the touch, best from a distance.' },
   { id:'stone',  name:'Stonevale',       icon:'⛰️', blurb:'Slow, sturdy, older than they look.' },
   { id:'frost',  name:'Frostpeak',       icon:'❄️', blurb:'Only comfortable when it\'s cold out.' },
+  { id:'mech',   name:'Mechanoid Yard',  icon:'⚙️', blurb:'Nobody remembers who built the first one.' },
   { id:'blood',  name:'Bloodmire',       icon:'🩸', blurb:'Best not to ask where the red comes from.' },
 ];
 
@@ -1068,6 +1334,15 @@ const CREATURES = [
   { id:'rimewarden', name:'Rimewarden', emoji:'🧊', rarity:'elder', set:'frost', flavor:'Doesn\'t shiver. Hasn\'t needed to in longer than anyone\'s tracked.' },
   { id:'nyxfrost', name:'Nyxfrost', emoji:'💠', rarity:'mythic', set:'frost', flavor:'The frost doesn\'t follow it. It arrives first.' },
 
+  // Mechanoid Yard ⚙️ — suggested by 『Go1d£n ₩aff€r』 on the board.
+  { id:'gearling', name:'Gearling', emoji:'⚙️', rarity:'common', set:'mech', flavor:'Ticks softly when content. No one\'s found the off switch.' },
+  { id:'boltbit', name:'Boltbit', emoji:'🔩', rarity:'common', set:'mech', flavor:'Loses a screw a day and somehow never falls apart.' },
+  { id:'servohop', name:'Servohop', emoji:'🦾', rarity:'rare', set:'mech', flavor:'Its joints whir louder the faster it gets excited.' },
+  { id:'circuitrix', name:'Circuitrix', emoji:'🕹️', rarity:'epic', set:'mech', flavor:'Rewires itself in its sleep. Wakes up a little different each time.' },
+  { id:'ironclad', name:'Ironclad', emoji:'🤖', rarity:'legendary', set:'mech', flavor:'Built for a war nobody around now remembers the reason for.' },
+  { id:'sentrywatch', name:'Sentrywatch', emoji:'📡', rarity:'elder', set:'mech', flavor:'Still broadcasting a signal nobody\'s answered in years.' },
+  { id:'omnicore', name:'Omnicore', emoji:'👾', rarity:'mythic', set:'mech', flavor:'Every machine in the yard falls quiet when it powers on.' },
+
   // Bloodmire 🩸 — the new set introduced alongside the Elder/Mythic tiers,
   // with a member at every rarity from Common to Mythic (Sky Wanderers,
   // above, is the only other set that also covers all 6 tiers).
@@ -1078,6 +1353,14 @@ const CREATURES = [
   { id:'hemogorge', name:'Hemogorge', emoji:'🐗', rarity:'legendary', set:'blood', flavor:'Every scar on it belongs to something that isn\'t around anymore.' },
   { id:'stillblood', name:'Stillblood', emoji:'🫗', rarity:'elder', set:'blood', flavor:'The bleeding stopped mattering to it a long time ago.' },
   { id:'bloodsovereign', name:'Bloodsovereign', emoji:'🫀', rarity:'mythic', set:'blood', flavor:'No one\'s ever caught it rising. It simply arrives already standing over you.' },
+
+  // Divine 🌌 — suggested by Paul. Deliberately NOT given an entry in SETS
+  // (no set chip), so these only ever appear in the "All Characters" pool —
+  // see the RARITIES.divine comment above. Landing one triggers the Divine
+  // Trial (see DIVINE_TRIAL_ROUNDS) before it's actually added to state.owned.
+  { id:'eidolon', name:'Eidolon', emoji:'👁️', rarity:'divine', set:'divine', flavor:'It doesn\'t blink. It\'s never needed to.' },
+  { id:'leviathrone', name:'Leviathrone', emoji:'🔱', rarity:'divine', set:'divine', flavor:'Ruled every ocean there ever was, long before there was an Ocean set.' },
+  { id:'cosmovore', name:'Cosmovore', emoji:'🌌', rarity:'divine', set:'divine', flavor:'It doesn\'t belong to any set. Every set belongs to it.' },
 ];
 
 const SET_COMPLETION_BONUS = 250;
@@ -1129,6 +1412,101 @@ const PRESTIGE_IDLE_BOOST = 0.25;         // +25% idle income once reached
 // should be a genuine late-game reward, not available from Prestige 1 like
 // the per-card sacrifice buttons and the rest of the Blood Sacrifice economy.
 const PRESTIGE_SACRIFICE_ALL_LEVEL = 15;
+
+// Trading — per board suggestion (Anonymous): "Add a trading system so
+// people can trade cards they need or currency." Per the user's answer to
+// the clarifying question: gated behind Prestige 1 to use at all, and can
+// move cards, coins, blood coins, and Lucky Charm charges freely — Prestige
+// Points specifically only if the side giving them is Prestige 5+ (so a
+// brand-new player can't be talked out of points they haven't really earned
+// the currency-generation curve for yet).
+const PRESTIGE_TRADE_LEVEL = 1;
+const PRESTIGE_TRADE_POINTS_LEVEL = 5;
+const TRADE_MAX_CARDS_PER_SIDE = 5; // keeps the picker UI and trade doc size sane
+
+/* =========================================================
+   PVP CARD BATTLES — per board suggestion (B|_O0Df!3#d, full text supplied
+   directly by the user since the Firestore copy was truncated). Deck-built
+   from the player's own collection, async turn-based duels via the `duels`
+   Firestore collection.
+
+   Card roles (judgment call — the suggestion didn't specify how non-Elder
+   rarities split between attack/effect): Elder creatures are Sentinel cards
+   (matches the suggestion exactly — "Elder cards will be sentinel cards"),
+   Mythic creatures are Effect cards (the other named special category),
+   everything else (Common/Rare/Epic/Legendary) is an Attack card, scaled by
+   rarity. Divine creatures are excluded entirely — that tier already has its
+   own dedicated Trial mechanic (see DIVINE_TRIAL_ROUNDS) and mixing it into
+   PvP too would muddy both systems.
+
+   A deck can include duplicate copies of the same creature up to however
+   many you actually own (consistent with how Trading treats "owned" cards),
+   since requiring 3 *distinct* Mythics for the effect slots alone would put
+   deck-building out of reach for most players this early.
+   ========================================================= */
+const PVP_SENTINEL_SLOTS = 1;
+const PVP_EFFECT_SLOTS = 3;
+const PVP_ATTACK_SLOTS = 6;
+const PVP_STARTING_HP = 1000;
+const PVP_SENTINEL_SUMMON_TURNS = 3;
+const PVP_SHINY_STAT_BONUS = 0.10; // "Shiny cards... have minor buffs"
+
+const PVP_ATTACK_BASE_STATS = {
+  common:    { hp:80,  atk:18, spd:10 },
+  rare:      { hp:110, atk:26, spd:13 },
+  epic:      { hp:150, atk:36, spd:16 },
+  legendary: { hp:200, atk:50, spd:20 },
+};
+const PVP_SENTINEL_BASE_STATS = { hp:340, atk:70, spd:12 }; // bulky, hard-hitting, slow — "turn the tide"
+const PVP_EFFECT_TYPES = ['weaken_spd', 'weaken_atk', 'heal'];
+
+function pvpCardRole(creature){
+  if(creature.rarity === 'elder') return 'sentinel';
+  if(creature.rarity === 'mythic') return 'effect';
+  if(creature.rarity === 'divine') return null;
+  return 'attack';
+}
+
+// Small deterministic hash of a creature id, used to give same-rarity cards
+// (and same-mythic effect cards) a bit of stable per-card stat/effect
+// variance instead of every card in a rarity being numerically identical.
+function pvpHash(str){
+  let h = 0;
+  for(let i=0;i<str.length;i++){ h = (h * 31 + str.charCodeAt(i)) >>> 0; }
+  return h;
+}
+
+// Returns { hp, atk, spd, role, effectType? } for a creature, before shiny
+// bonus. Sentinel/effect cards still carry hp/atk/spd — effect cards don't
+// use theirs for combat math (see resolvePvpTurn) but keep the shape uniform.
+function pvpBaseCardStats(creature){
+  const role = pvpCardRole(creature);
+  if(role === 'sentinel'){
+    const variance = (pvpHash(creature.id) % 21) - 10; // +/-10 flat variance
+    return { role, hp: PVP_SENTINEL_BASE_STATS.hp + variance, atk: PVP_SENTINEL_BASE_STATS.atk + Math.round(variance/4), spd: PVP_SENTINEL_BASE_STATS.spd };
+  }
+  if(role === 'effect'){
+    const effectType = PVP_EFFECT_TYPES[pvpHash(creature.id) % PVP_EFFECT_TYPES.length];
+    return { role, hp: 60, atk: 0, spd: 15, effectType };
+  }
+  const base = PVP_ATTACK_BASE_STATS[creature.rarity] || PVP_ATTACK_BASE_STATS.common;
+  const variance = (pvpHash(creature.id) % 11) - 5; // +/-5 flat variance so same-rarity cards differ a little
+  return { role, hp: base.hp + variance, atk: base.atk + Math.round(variance/3), spd: base.spd };
+}
+
+// Applies the shiny buff (see PVP_SHINY_STAT_BONUS) on top of the base stats
+// for a specific owned copy. `shiny` is whether THIS deck slot is the
+// player's shiny copy (chosen at deck-build time, see renderPvpDeckBuilder).
+function pvpCardStats(creature, shiny){
+  const base = pvpBaseCardStats(creature);
+  if(!shiny) return base;
+  return {
+    ...base,
+    hp: Math.round(base.hp * (1 + PVP_SHINY_STAT_BONUS)),
+    atk: Math.round(base.atk * (1 + PVP_SHINY_STAT_BONUS)),
+    spd: Math.round(base.spd * (1 + PVP_SHINY_STAT_BONUS)),
+  };
+}
 
 // Prestige Shop — cosmetic leaderboard banners, added 2026-07-23 from two
 // board suggestions: "Add a prestige shop" (too vague to build alone) and a
@@ -1226,7 +1604,7 @@ function defaultSave(){
     playerName: '',
     lastTick: Date.now(),
     completedSets: [],  // set ids already paid out
-    bloodCoins: { common:0, rare:0, epic:0, legendary:0, elder:0, mythic:0 }, // from sacrificing duplicates
+    bloodCoins: { common:0, rare:0, epic:0, legendary:0, elder:0, mythic:0, divine:0 }, // from sacrificing duplicates (divine also from a failed Divine Trial — see DIVINE_TRIAL_FAIL_BLOOD_COINS)
     memoryUpgradeLevel: 0,       // Memory Match reward upgrade tier, bought with blood coins
     background: 'default',       // currently applied background theme id
     unlockedBackgrounds: ['default'], // background ids purchased with coins
@@ -1245,9 +1623,17 @@ function defaultSave(){
     soundEnabled: true,          // synthesized sound effects on/off, toggled in Settings
     prestigePoints: 0,           // Prestige Shop currency — see BANNERS/PRESTIGE_POINTS_PER_PRESTIGE
     unlockedBanners: [],         // banner ids purchased from the Prestige Shop
-    equippedBanner: '',          // currently-equipped banner id, or '' for none
+    // Per board suggestion (Trioo3308, 2026-07-24): one slot per banner TYPE
+    // (strip/badge/frame) so all three can be equipped simultaneously, instead
+    // of the old single equippedBanner slot that could only hold one banner
+    // total regardless of type. '' in any slot means nothing equipped there.
+    equippedBanners: { strip:'', badge:'', frame:'' },
     charmCharges: 0,             // stored Lucky Charm pull-boosts — see CHARM_LUCK_MULTIPLIER
     hasCharmFlawless: false,     // cleared Lucky Charm with 0 strikes used
+    // PvP deck (see PVP_SENTINEL_SLOTS etc.) — creature ids, duplicates
+    // allowed up to how many you actually own. null/empty slots mean the
+    // deck isn't complete yet (see hasValidPvpDeck).
+    pvpDeck: { sentinel: null, effects: [null, null, null], attacks: [null, null, null, null, null, null] },
   };
 }
 
@@ -1289,7 +1675,31 @@ function migrateSave(data){
     ? data.prestigePoints
     : (merged.prestigeLevel||0) * PRESTIGE_POINTS_PER_PRESTIGE;
   merged.unlockedBanners = Array.isArray(data && data.unlockedBanners) ? data.unlockedBanners.slice() : [];
-  merged.equippedBanner = (data && typeof data.equippedBanner === 'string') ? data.equippedBanner : '';
+  // equippedBanners: new 3-slot (strip/badge/frame) shape — see defaultSave()
+  // comment. Back-compat: a save from before this update has the old
+  // single-slot `equippedBanner` string instead; slot it into the matching
+  // type so nobody's already-equipped banner silently vanishes on upgrade.
+  if(data && data.equippedBanners && typeof data.equippedBanners === 'object'){
+    merged.equippedBanners = {
+      strip: typeof data.equippedBanners.strip === 'string' ? data.equippedBanners.strip : '',
+      badge: typeof data.equippedBanners.badge === 'string' ? data.equippedBanners.badge : '',
+      frame: typeof data.equippedBanners.frame === 'string' ? data.equippedBanners.frame : '',
+    };
+  } else {
+    merged.equippedBanners = { strip:'', badge:'', frame:'' };
+    const legacyId = (data && typeof data.equippedBanner === 'string') ? data.equippedBanner : '';
+    const legacyBanner = legacyId ? BANNERS.find(b => b.id === legacyId) : null;
+    if(legacyBanner) merged.equippedBanners[legacyBanner.type] = legacyBanner.id;
+  }
+  delete merged.equippedBanner;
+  // PvP deck — validate shape defensively rather than trusting a raw import/
+  // corrupted save; anything malformed just falls back to an empty deck.
+  const rawDeck = data && data.pvpDeck;
+  merged.pvpDeck = {
+    sentinel: (rawDeck && typeof rawDeck.sentinel === 'string') ? rawDeck.sentinel : null,
+    effects: (rawDeck && Array.isArray(rawDeck.effects)) ? [0,1,2].map(i => rawDeck.effects[i] || null) : [null,null,null],
+    attacks: (rawDeck && Array.isArray(rawDeck.attacks)) ? [0,1,2,3,4,5].map(i => rawDeck.attacks[i] || null) : [null,null,null,null,null,null],
+  };
   merged.version = SAVE_VERSION;
   return merged;
 }
@@ -1374,14 +1784,14 @@ function doPrestige(){
   state.ownedShiny = {}; // shinies are a variant of an owned creature — reset alongside the collection
   state.coins = defaultSave().coins;
   state.completedSets = [];
-  state.bloodCoins = { common:0, rare:0, epic:0, legendary:0, elder:0, mythic:0 };
+  state.bloodCoins = { common:0, rare:0, epic:0, legendary:0, elder:0, mythic:0, divine:0 };
   state.memoryUpgradeLevel = 0;
   state.recallUpgradeLevel = 0;
   state.unlockedMinigames = ['memory'];
   state.charmCharges = 0; // Lucky Charm unlock resets with the rest of the blood-coin economy, so any stored charges go with it
   state.prestigeLevel = nextLevel;
   // Prestige Shop currency — awarded on every prestige, not reset by it (see
-  // PRESTIGE_POINTS_PER_PRESTIGE); unlockedBanners/equippedBanner are
+  // PRESTIGE_POINTS_PER_PRESTIGE); unlockedBanners/equippedBanners are
   // cosmetic and preserved too, same treatment as backgrounds.
   state.prestigePoints = (state.prestigePoints||0) + PRESTIGE_POINTS_PER_PRESTIGE;
   // lifetimeCoins, totalPulls, pity progress, background/unlockedBackgrounds,
@@ -1869,6 +2279,115 @@ document.getElementById('charmCloseBtn').addEventListener('click', ()=>{
   charmModal.classList.add('hidden');
 });
 
+/* =========================================================
+   DIVINE TRIAL — per board suggestion (Paul): pulling a Divine-ranked
+   creature (see RARITIES.divine) doesn't grant it outright. It launches a
+   mandatory series of rapid-fire skill checks; land every one to keep the
+   card, miss (or run out of time on) even one and it's gone for good —
+   "explodes", per Paul's answer to the clarifying question — in exchange for
+   a single consolation Divine blood coin. No close/skip button: per the
+   suggestion text ("you have to complete... or you can't keep it") this
+   isn't an optional minigame like Lucky Charm/Memory Match, it's the price
+   of admission for a card this rare.
+   ========================================================= */
+const DIVINE_TRIAL_ROUNDS = 5;
+const DIVINE_TRIAL_START_MS = 1000;   // time allowed on round 1
+const DIVINE_TRIAL_MS_STEP = 130;     // time shaved off each subsequent round
+const DIVINE_TRIAL_MIN_MS = 380;      // floor, so the last rounds stay landable
+const DIVINE_TRIAL_FAIL_BLOOD_COINS = 1;
+const DIVINE_TARGET_SIZE = 54;
+
+let divine = null;
+const divineModal = document.getElementById('divineModal');
+const divineArena = document.getElementById('divineArena');
+const divineTarget = document.getElementById('divineTarget');
+
+function divineRoundTimeMs(round){ // round is 0-indexed
+  return Math.max(DIVINE_TRIAL_MIN_MS, DIVINE_TRIAL_START_MS - round * DIVINE_TRIAL_MS_STEP);
+}
+
+// Returns a Promise<boolean> — true if every round was landed (keep the
+// card), false the moment one is missed or times out (card is lost).
+function startDivineTrial(creature){
+  return new Promise(resolve => {
+    divine = { round: 0, resolve, timeoutId: null, creature };
+    document.getElementById('divineIntroName').textContent = `${creature.emoji} ${creature.name}`;
+    divineModal.classList.remove('hidden');
+    divineResult.classList.add('hidden');
+    divineNextRound();
+  });
+}
+
+function divineNextRound(){
+  document.getElementById('divineRound').textContent = `${divine.round + 1}/${DIVINE_TRIAL_ROUNDS}`;
+  const w = divineArena.clientWidth, h = divineArena.clientHeight;
+  const maxX = Math.max(0, w - DIVINE_TARGET_SIZE);
+  const maxY = Math.max(0, h - DIVINE_TARGET_SIZE);
+  divineTarget.style.left = Math.floor(Math.random() * maxX) + 'px';
+  divineTarget.style.top = Math.floor(Math.random() * maxY) + 'px';
+  divineTarget.disabled = false;
+  divineTarget.classList.remove('hit');
+  const ms = divineRoundTimeMs(divine.round);
+  // Reflow-restart the shrink animation (see stats modal comment elsewhere on
+  // why forced reflow is used instead of rAF — same background-tab concern).
+  divineTarget.style.animation = 'none';
+  void divineTarget.offsetWidth;
+  divineTarget.style.animation = `divineShrink ${ms}ms linear forwards`;
+  clearTimeout(divine.timeoutId);
+  divine.timeoutId = setTimeout(() => divineFinish(false), ms);
+}
+
+function divineHit(){
+  if(!divine || divineTarget.disabled) return;
+  clearTimeout(divine.timeoutId);
+  divineTarget.disabled = true;
+  divineTarget.classList.add('hit');
+  divine.round++;
+  if(divine.round >= DIVINE_TRIAL_ROUNDS){
+    setTimeout(() => divineFinish(true), 180);
+  } else {
+    setTimeout(divineNextRound, 220);
+  }
+}
+
+function divineFinish(won){
+  clearTimeout(divine.timeoutId);
+  const resolve = divine.resolve;
+  const creature = divine.creature;
+  const landedRounds = divine.round;
+  divineResult.classList.remove('hidden');
+  divineResult.innerHTML = won
+    ? `<div style="font-size:15px;">✨ Trial cleared! ${creature.name} is yours.</div>`
+    : `<div style="font-size:15px;">💥 Missed check ${landedRounds + 1}/${DIVINE_TRIAL_ROUNDS} — ${creature.name} shattered. +${DIVINE_TRIAL_FAIL_BLOOD_COINS} 🩸 Divine blood coin.</div>`;
+  setTimeout(() => {
+    divineModal.classList.add('hidden');
+    divine = null;
+    resolve(won);
+  }, won ? 900 : 1400);
+}
+
+divineTarget.addEventListener('click', divineHit);
+const divineResult = document.getElementById('divineResult');
+
+// Runs any Divine pulls in a pull-result batch through the trial in sequence
+// (a x10 pull could in principle contain more than one), mutating each
+// result in place with .divineWon and applying the win/lose consequence.
+// Non-divine results are left untouched. Safe to call with an empty/normal
+// batch — resolves immediately if nothing in it is Divine.
+async function resolveDivinePulls(results){
+  for(const result of results){
+    if(!result.isDivine) continue;
+    const won = await startDivineTrial(result.creature);
+    result.divineWon = won;
+    if(won){
+      state.owned[result.creature.id] = (state.owned[result.creature.id]||0) + 1;
+      if(result.shiny) state.ownedShiny[result.creature.id] = (state.ownedShiny[result.creature.id]||0) + 1;
+    } else {
+      state.bloodCoins.divine = (state.bloodCoins.divine||0) + DIVINE_TRIAL_FAIL_BLOOD_COINS;
+    }
+  }
+}
+
 function canAffordCharmUnlock(){
   return Object.entries(CHARM_UNLOCK_COST).every(([r,a]) => (state.bloodCoins[r]||0) >= a);
 }
@@ -1958,18 +2477,25 @@ function pullOne(pool){
   const rarityPool = pool.filter(c => c.rarity === rarity);
   const creature = rarityPool[Math.floor(Math.random() * rarityPool.length)];
   const wasOwned = !!state.owned[creature.id];
-  state.owned[creature.id] = (state.owned[creature.id]||0) + 1;
+  const isDivine = rarity === 'divine';
+  // Divine (see RARITIES.divine / DIVINE_TRIAL_ROUNDS): a hit here does NOT
+  // grant ownership yet — the caller (pullOneBtn/pullTenBtn) must run the
+  // player through the Divine Trial first and only add it to state.owned on
+  // a win. Every other rarity grants immediately, same as before.
+  if(!isDivine) state.owned[creature.id] = (state.owned[creature.id]||0) + 1;
   state.totalPulls++;
 
   // Shiny: a small independent chance to also mark this copy as shiny —
   // shinies still count toward owning the creature (state.owned), this just
-  // layers an extra, rarer flag + sell premium on top.
+  // layers an extra, rarer flag + sell premium on top. For a Divine pull this
+  // is still rolled now (so the trial UI can reflect it) but only actually
+  // recorded to state.ownedShiny if the trial is won — see pullOneBtn/pullTenBtn.
   const shiny = Math.random() < currentShinyChance();
-  if(shiny) state.ownedShiny[creature.id] = (state.ownedShiny[creature.id]||0) + 1;
+  if(shiny && !isDivine) state.ownedShiny[creature.id] = (state.ownedShiny[creature.id]||0) + 1;
 
   // Duplicates are no longer auto-converted to coins — they join the collection as
   // an extra copy the player can sell manually anytime (see sellOneDuplicate below).
-  return { creature, wasOwned, pity, shiny, usedCharm };
+  return { creature, wasOwned, pity, shiny, usedCharm, isDivine };
 }
 
 /* ---------- SET PICKER + PULL UI ---------- */
@@ -2011,10 +2537,16 @@ function updatePullUI(){
   const pool = creaturePoolForPull();
   const availableRarities = Array.from(new Set(pool.map(c => c.rarity)));
   const total = availableRarities.reduce((s, r) => s + RARITIES[r].weight, 0);
-  const order = ['common','rare','epic','legendary','elder','mythic'];
+  const order = ['common','rare','epic','legendary','elder','mythic','divine'];
   const oddsStr = order
     .filter(r => availableRarities.includes(r))
-    .map(r => `${RARITIES[r].label} ${Math.round(RARITIES[r].weight / total * 100)}%`)
+    .map(r => {
+      const pct = RARITIES[r].weight / total * 100;
+      // Divine's weight (0.03) rounds to a misleading "0%" at 0 decimals —
+      // show it to 2 decimals instead so it still reads as "rare, not absent".
+      const pctStr = pct < 0.1 ? pct.toFixed(2) : Math.round(pct);
+      return `${RARITIES[r].label} ${pctStr}%`;
+    })
     .join(' · ');
   document.getElementById('oddsLine').textContent = oddsStr;
 
@@ -2247,6 +2779,7 @@ const RARITY_SFX = {
   legendary: [[523, 0, 0.16], [659, 0.1, 0.16], [784, 0.2, 0.16], [1047, 0.3, 0.32]],
   elder:     [[330, 0, 0.34], [415, 0.18, 0.4]],
   mythic:    [[523, 0, 0.14], [659, 0.08, 0.14], [784, 0.16, 0.14], [988, 0.24, 0.16], [1319, 0.34, 0.2], [1760, 0.46, 0.42]],
+  divine:    [[659, 0, 0.16], [880, 0.1, 0.16], [1108, 0.2, 0.16], [1319, 0.3, 0.18], [1760, 0.42, 0.22], [2217, 0.56, 0.5]],
 };
 const SHINY_SFX = [[1568, 0.05, 0.12], [1976, 0.15, 0.12], [2349, 0.25, 0.22]];
 
@@ -2321,9 +2854,11 @@ document.getElementById('pullOneBtn').addEventListener('click', async ()=>{
   await playGachaAnimation();
   state.coins -= cost;
   const result = pullOne(pool);
+  if(result.isDivine) await resolveDivinePulls([result]);
   const newlyCompleted = checkSetCompletions();
   persist();
   renderCoins();
+  renderBloodCoins();
   showSingleReveal(result);
   renderCollection();
   updatePullUI();
@@ -2341,9 +2876,11 @@ document.getElementById('pullTenBtn').addEventListener('click', async ()=>{
   state.coins -= cost;
   const results = [];
   for(let i=0;i<10;i++) results.push(pullOne(pool));
+  await resolveDivinePulls(results);
   const newlyCompleted = checkSetCompletions();
   persist();
   renderCoins();
+  renderBloodCoins();
   showMultiReveal(results);
   renderCollection();
   updatePullUI();
@@ -2358,11 +2895,28 @@ const revealCard = document.getElementById('revealCard');
 
 function rarityColorVar(rarity){ return RARITIES[rarity].color; }
 
-function showSingleReveal({creature, wasOwned, pity, shiny}){
+function showSingleReveal({creature, wasOwned, pity, shiny, isDivine, divineWon}){
+  // A Divine pull that failed its trial (see resolveDivinePulls) never made
+  // it into state.owned — show the "shattered" outcome instead of a normal
+  // reveal card, so the player isn't misled into thinking they kept it.
+  if(isDivine && !divineWon){
+    sfxPull('common', false);
+    revealCard.innerHTML = `
+      <div class="reveal-rarity" style="background:${rarityColorVar('divine')};color:#1a1330;">Divine</div>
+      <div class="reveal-emoji">💥</div>
+      <div class="reveal-name">${creature.name} — Shattered</div>
+      <div class="reveal-flavor">Missed a skill check in the Divine Trial. The card is gone.</div>
+      <div class="reveal-dupe">+${DIVINE_TRIAL_FAIL_BLOOD_COINS} 🩸 Divine blood coin (consolation)</div>
+      <button class="btn-accent" id="closeRevealBtn">Ah well...</button>
+    `;
+    revealModal.classList.remove('hidden');
+    document.getElementById('closeRevealBtn').addEventListener('click', ()=> revealModal.classList.add('hidden'));
+    return;
+  }
   sfxPull(creature.rarity, shiny);
   revealCard.innerHTML = `
     ${shiny ? `<div class="reveal-shiny-badge">✨ SHINY!</div>` : ''}
-    <div class="reveal-rarity" style="background:${rarityColorVar(creature.rarity)};color:#1a1330;">${RARITIES[creature.rarity].label}${pity ? ' · PITY' : ''}</div>
+    <div class="reveal-rarity" style="background:${rarityColorVar(creature.rarity)};color:#1a1330;">${RARITIES[creature.rarity].label}${pity ? ' · PITY' : ''}${isDivine ? ' · TRIAL CLEARED' : ''}</div>
     <div class="reveal-emoji ${shiny ? 'shiny' : ''}" style="color:${rarityColorVar(creature.rarity)}">${creature.emoji}</div>
     <div class="reveal-name">${creature.name}</div>
     <div class="reveal-flavor">${creature.flavor}</div>
@@ -2373,7 +2927,7 @@ function showSingleReveal({creature, wasOwned, pity, shiny}){
   document.getElementById('closeRevealBtn').addEventListener('click', ()=> revealModal.classList.add('hidden'));
 }
 
-const RARITY_RANK = ['common', 'rare', 'epic', 'legendary', 'elder', 'mythic'];
+const RARITY_RANK = ['common', 'rare', 'epic', 'legendary', 'elder', 'mythic', 'divine'];
 
 function showMultiReveal(results){
   // One combined chime for the whole batch, pitched to the best rarity
@@ -2382,14 +2936,26 @@ function showMultiReveal(results){
     RARITY_RANK.indexOf(r.creature.rarity) > RARITY_RANK.indexOf(best) ? r.creature.rarity : best, 'common');
   sfxPull(bestRarity, results.some(r => r.shiny));
 
-  const cells = results.map(({creature, wasOwned, shiny})=>`
+  const cells = results.map(({creature, wasOwned, shiny, isDivine, divineWon})=>{
+    // A failed Divine Trial never joined the collection — show it as
+    // shattered rather than as an owned pull (see showSingleReveal).
+    if(isDivine && !divineWon){
+      return `
+        <div class="multi-cell" style="border-color:${rarityColorVar('divine')};color:${rarityColorVar('divine')}">
+          💥
+          <div class="nm" style="color:var(--text-dim)">shattered</div>
+        </div>
+      `;
+    }
+    return `
     <div class="multi-cell ${shiny ? 'shiny' : ''}" style="border-color:${rarityColorVar(creature.rarity)};color:${rarityColorVar(creature.rarity)}">
       ${shiny ? '✨' : ''}${creature.emoji}
       <div class="nm" style="color:var(--text-dim)">${wasOwned ? 'dupe' : creature.name}</div>
     </div>
-  `).join('');
-  const newCount = results.filter(r=>!r.wasOwned).length;
-  const shinyCount = results.filter(r=>r.shiny).length;
+  `;
+  }).join('');
+  const newCount = results.filter(r=>!r.wasOwned && !(r.isDivine && !r.divineWon)).length;
+  const shinyCount = results.filter(r=>r.shiny && !(r.isDivine && !r.divineWon)).length;
   revealCard.innerHTML = `
     <div class="reveal-name">10x Pull Results</div>
     <div class="reveal-flavor">${newCount} new character${newCount===1?'':'s'} found!${shinyCount ? ` ✨ ${shinyCount} shiny!` : ''}</div>
@@ -2594,7 +3160,7 @@ function sacrificeOneDuplicate(id){
 }
 
 function renderBloodCoins(){
-  const order = ['common','rare','epic','legendary','elder','mythic'];
+  const order = ['common','rare','epic','legendary','elder','mythic','divine'];
   const html = order.map(r => `<div class="blood-chip">🩸 ${RARITIES[r].label} <b>${state.bloodCoins[r]||0}</b></div>`).join('');
   ['bloodCoinStripPull','bloodCoinStripCollection','bloodCoinStripRecall'].forEach(id=>{
     const el = document.getElementById(id);
@@ -2805,10 +3371,11 @@ function buyOrEquipBanner(id){
   const banner = BANNERS.find(b => b.id === id);
   if(!banner) return;
   if(isBannerOwned(banner)){
-    // Already purchased — toggle equip/unequip, same interaction as the
-    // Leaderboard showcase-creature pin (only one banner can be equipped
-    // at a time; picking a new one replaces whatever was equipped before).
-    state.equippedBanner = (state.equippedBanner === id) ? '' : id;
+    // Already purchased — toggle equip/unequip. Per board suggestion
+    // (Trioo3308): one slot per banner TYPE, so equipping a badge no longer
+    // replaces an equipped strip or frame — only another banner of the SAME
+    // type competes for that slot.
+    state.equippedBanners[banner.type] = (state.equippedBanners[banner.type] === id) ? '' : id;
     persist();
     renderPrestigeShop();
     pushPlayerStats();
@@ -2818,7 +3385,7 @@ function buyOrEquipBanner(id){
   if((state.prestigePoints||0) < banner.cost) return toast(`Not enough Prestige Points — ${banner.name} costs ${banner.cost} ✦ (you have ${state.prestigePoints||0}).`);
   state.prestigePoints -= banner.cost;
   state.unlockedBanners.push(id);
-  state.equippedBanner = id; // auto-equip on purchase, matching how buying a background auto-applies it
+  state.equippedBanners[banner.type] = id; // auto-equip on purchase, matching how buying a background auto-applies it
   persist();
   renderPrestigeShop();
   pushPlayerStats();
@@ -2833,7 +3400,7 @@ function renderPrestigeShop(){
   shop.innerHTML = BANNERS.map(banner=>{
     const owned = isBannerOwned(banner);
     const levelOk = isBannerLevelUnlocked(banner);
-    const active = state.equippedBanner === banner.id;
+    const active = state.equippedBanners[banner.type] === banner.id;
     const priceLabel = active ? 'Equipped'
       : owned ? 'Owned — tap to equip'
       : !levelOk ? `🌟 Prestige ${banner.prestigeRequired} required`
@@ -2861,6 +3428,8 @@ document.querySelectorAll('nav button').forEach(btn=>{
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('view-' + btn.dataset.view).classList.add('active');
+    if(btn.dataset.view === 'trade') renderTradeView();
+    if(btn.dataset.view === 'pvp') renderPvpView();
   });
 });
 
@@ -2964,6 +3533,11 @@ let firebaseReady = false;
 let db = null;
 let unsubscribeSuggestions = null;
 let unsubscribeLeaderboard = null;
+let unsubscribeTrades = null;
+let lastTradesList = []; // most recent `trades` snapshot (all trades — filtered client-side to mine, see renderTradeView)
+let unsubscribeDuels = null;
+let lastDuelsList = []; // most recent `duels` snapshot (all duels — filtered client-side to mine, see renderPvpView)
+let currentPvpDuelId = null; // duel currently open in the battle modal, if any
 let lastPlayersList = []; // most recent `players` snapshot, reused by the Lifetime Stats modal
 
 function getLocalSuggestions(){
@@ -2978,8 +3552,9 @@ function setConnBadge(live){
   const offlineText = {
     connBadge: 'Offline mode (this device only)',
     leaderboardConnBadge: 'Offline — leaderboard needs live sync',
+    tradeConnBadge: 'Offline — trading needs live sync',
   };
-  [['connBadge','connText'], ['leaderboardConnBadge','leaderboardConnText']].forEach(([badgeId, textId])=>{
+  [['connBadge','connText'], ['leaderboardConnBadge','leaderboardConnText'], ['tradeConnBadge','tradeConnText']].forEach(([badgeId, textId])=>{
     const badge = document.getElementById(badgeId);
     const text = document.getElementById(textId);
     if(!badge || !text) return;
@@ -3125,9 +3700,35 @@ function connectFirebase(config){
         lastPlayersList = list;
         renderLeaderboard(list);
         if(!document.getElementById('statsModal').classList.contains('hidden')) renderStatsModal();
+        if(document.getElementById('view-trade').classList.contains('active')) renderTradeView();
+        if(document.getElementById('view-pvp').classList.contains('active')) renderPvpView();
       }, err=>{
         console.error(err);
         toast('Leaderboard sync error — check your Firestore rules.');
+      });
+
+      if(unsubscribeTrades) unsubscribeTrades();
+      unsubscribeTrades = db.collection('trades').onSnapshot(snap=>{
+        const list = [];
+        snap.forEach(doc=> list.push({ id: doc.id, ...doc.data() }));
+        lastTradesList = list;
+        resolveAcceptedTradesAsProposer();
+        if(document.getElementById('view-trade').classList.contains('active')) renderTradeView();
+      }, err=>{
+        console.error(err);
+        toast('Trade sync error — check your Firestore rules.');
+      });
+
+      if(unsubscribeDuels) unsubscribeDuels();
+      unsubscribeDuels = db.collection('duels').onSnapshot(snap=>{
+        const list = [];
+        snap.forEach(doc=> list.push({ id: doc.id, ...doc.data() }));
+        lastDuelsList = list;
+        if(document.getElementById('view-pvp').classList.contains('active')) renderPvpView();
+        if(!document.getElementById('pvpBattleModal').classList.contains('hidden')) renderPvpBattleModal();
+      }, err=>{
+        console.error(err);
+        toast('Duel sync error — check your Firestore rules.');
       });
       pushPlayerStats();
     }catch(e){
@@ -3171,10 +3772,16 @@ document.getElementById('clearConfigBtn').addEventListener('click', ()=>{
   db = null;
   if(unsubscribeSuggestions){ unsubscribeSuggestions(); unsubscribeSuggestions = null; }
   if(unsubscribeLeaderboard){ unsubscribeLeaderboard(); unsubscribeLeaderboard = null; }
+  if(unsubscribeTrades){ unsubscribeTrades(); unsubscribeTrades = null; }
+  if(unsubscribeDuels){ unsubscribeDuels(); unsubscribeDuels = null; }
   setConnBadge(false);
   renderSuggestions(getLocalSuggestions());
   lastPlayersList = [];
   renderLeaderboard([]);
+  lastTradesList = [];
+  if(document.getElementById('view-trade').classList.contains('active')) renderTradeView();
+  lastDuelsList = [];
+  if(document.getElementById('view-pvp').classList.contains('active')) renderPvpView();
   if(!document.getElementById('statsModal').classList.contains('hidden')) renderStatsModal();
   document.getElementById('configInput').value = '';
   toast('Disconnected from live sync.');
@@ -3206,11 +3813,18 @@ function pushPlayerStats(){
   const showcaseId = (state.showcaseCreatureId && (state.owned[state.showcaseCreatureId]||0) > 0)
     ? state.showcaseCreatureId : '';
   const showcaseShiny = showcaseId ? (state.ownedShiny[showcaseId]||0) > 0 : false;
-  // Prestige Shop banner: only publish an id the player actually still owns
-  // (guards against a stale/removed banner ever surfacing publicly), mirroring
-  // the same guard used for showcaseId above.
-  const bannerId = (state.equippedBanner && isBannerOwned({ id: state.equippedBanner }))
-    ? state.equippedBanner : '';
+  // Prestige Shop banners: publish up to 3 ids now (one per type — strip/
+  // badge/frame — see equippedBanners), each only if the player actually
+  // still owns it (guards against a stale/removed banner ever surfacing
+  // publicly), mirroring the same guard used for showcaseId above.
+  const equipped = state.equippedBanners || { strip:'', badge:'', frame:'' };
+  const stripId = (equipped.strip && isBannerOwned({ id: equipped.strip })) ? equipped.strip : '';
+  const badgeId = (equipped.badge && isBannerOwned({ id: equipped.badge })) ? equipped.badge : '';
+  const frameId = (equipped.frame && isBannerOwned({ id: equipped.frame })) ? equipped.frame : '';
+  // PvP (see hasValidPvpDeck): published so other players can see who's
+  // actually challengeable — the deck contents themselves aren't published,
+  // just this one boolean.
+  const hasPvpDeck = hasValidPvpDeck(state.pvpDeck);
   db.collection('players').doc(getDeviceId()).set({
     name,
     coins: Math.floor(state.coins || 0),
@@ -3220,7 +3834,10 @@ function pushPlayerStats(){
     totalPulls: state.totalPulls || 0,
     showcaseId,
     showcaseShiny,
-    bannerId,
+    stripId,
+    badgeId,
+    frameId,
+    hasPvpDeck,
     updatedAt: Date.now(),
   }, { merge: true }).catch(err => console.error('Leaderboard push failed', err));
 }
@@ -3247,12 +3864,20 @@ function renderLeaderboard(list){
     const showcaseHtml = showcaseCreature
       ? `<span class="leaderboard-showcase ${p.showcaseShiny ? 'shiny' : ''}" title="${escapeHtml(showcaseCreature.name)}${p.showcaseShiny ? ' (Shiny)' : ''}">${p.showcaseShiny ? '✨' : ''}${showcaseCreature.emoji}</span>`
       : '';
-    // Prestige Shop banner (see BANNERS): strip/frame types add a CSS class
-    // to the whole row, badge types render a small icon next to the name.
-    const banner = p.bannerId ? BANNERS.find(b => b.id === p.bannerId) : null;
-    const bannerRowClass = (banner && banner.rowClass) ? banner.rowClass : '';
-    const bannerBadgeHtml = (banner && banner.type === 'badge')
-      ? `<span class="leaderboard-badge" title="${escapeHtml(banner.name)}">${banner.icon}</span>`
+    // Prestige Shop banners (see BANNERS): strip/frame types each add a CSS
+    // class to the whole row, badge types render a small icon next to the
+    // name. Per board suggestion (Trioo3308), all three types can now be
+    // equipped and shown at once, published as separate stripId/badgeId/
+    // frameId fields — fall back to the older single bannerId field so
+    // players on an unrefreshed device still render (as whichever one type
+    // that field happens to be).
+    const legacyBanner = (!p.stripId && !p.badgeId && !p.frameId && p.bannerId) ? BANNERS.find(b => b.id === p.bannerId) : null;
+    const stripBanner = p.stripId ? BANNERS.find(b => b.id === p.stripId) : (legacyBanner && legacyBanner.type === 'strip' ? legacyBanner : null);
+    const badgeBanner = p.badgeId ? BANNERS.find(b => b.id === p.badgeId) : (legacyBanner && legacyBanner.type === 'badge' ? legacyBanner : null);
+    const frameBanner = p.frameId ? BANNERS.find(b => b.id === p.frameId) : (legacyBanner && legacyBanner.type === 'frame' ? legacyBanner : null);
+    const bannerRowClass = [stripBanner && stripBanner.rowClass, frameBanner && frameBanner.rowClass].filter(Boolean).join(' ');
+    const bannerBadgeHtml = badgeBanner
+      ? `<span class="leaderboard-badge" title="${escapeHtml(badgeBanner.name)}">${badgeBanner.icon}</span>`
       : '';
     return `
     <div class="leaderboard-row ${p.id===deviceId ? 'me' : ''} ${bannerRowClass}">
@@ -3270,6 +3895,855 @@ function renderLeaderboard(list){
   `;
   }).join('')}</div>`;
 }
+
+/* =========================================================
+   TRADING — per board suggestion (Anonymous): trade cards, coins, blood
+   coins, and Lucky Charms with other players; Prestige Points too, but only
+   from a Prestige 5+ giver (see PRESTIGE_TRADE_POINTS_LEVEL). Backed by the
+   `trades` Firestore collection (async, no login — see FIREBASE_SETUP.md).
+
+   Design note (judgment call): the proposer can't see the recipient's
+   collection (each device only knows its OWN owned[] locally), so a trade's
+   "request" side is a structured currency ask (fully verifiable up front)
+   plus a free-text note for cards — the recipient manually attaches
+   whichever of their own cards they're willing to send when they accept.
+   Trust-based, consistent with how the rest of this app already works.
+
+   Once accepted, each side applies its own half locally the moment it
+   notices (recipient applies immediately in acceptTrade(); proposer applies
+   via resolveAcceptedTradesAsProposer(), run on every trades snapshot) —
+   fromApplied/toApplied guard against double-applying on snapshot replay.
+   ========================================================= */
+const BLOOD_RARITY_OPTIONS = ['common','rare','epic','legendary','elder','mythic','divine'];
+
+function hasTradingUnlocked(){
+  return (state.prestigeLevel||0) >= PRESTIGE_TRADE_LEVEL;
+}
+
+function otherPlayers(){
+  const myId = getDeviceId();
+  return lastPlayersList.filter(p => p.id !== myId && (p.name||'').trim());
+}
+
+function ownedCardOptionsHtml(pickerId, maxSelect){
+  const owned = CREATURES.filter(c => (state.owned[c.id]||0) > 0);
+  if(!owned.length) return `<div style="font-size:12px;color:var(--text-dim);">You don't own any cards yet.</div>`;
+  return owned.map(c => `
+    <label class="trade-card-chip">
+      <input type="checkbox" value="${c.id}" data-max="${maxSelect}" />
+      ${c.emoji} ${escapeHtml(c.name)} <span style="color:var(--text-dim);">x${state.owned[c.id]}</span>
+    </label>
+  `).join('');
+}
+
+function bloodTypeSelectHtml(id){
+  return `<select id="${id}"><option value="">No blood coins</option>${BLOOD_RARITY_OPTIONS.map(r=>`<option value="${r}">${RARITIES[r].label}</option>`).join('')}</select>`;
+}
+
+function enforceCardPickerMax(e, pickerId){
+  const picker = document.getElementById(pickerId);
+  if(!picker) return;
+  const checked = [...picker.querySelectorAll('input[type=checkbox]:checked')];
+  const max = e.target.dataset.max ? parseInt(e.target.dataset.max, 10) : TRADE_MAX_CARDS_PER_SIDE;
+  if(checked.length > max){
+    e.target.checked = false;
+    toast(`You can only include up to ${max} cards in one trade side.`);
+  }
+  picker.querySelectorAll('.trade-card-chip').forEach(chip=>{
+    chip.classList.toggle('checked', chip.querySelector('input').checked);
+  });
+}
+
+function readCheckedCardIds(containerId){
+  const picker = document.getElementById(containerId);
+  if(!picker) return [];
+  return [...picker.querySelectorAll('input[type=checkbox]:checked')].map(cb => cb.value);
+}
+
+function updateTradeRequestPointsGate(){
+  const select = document.getElementById('tradeTargetSelect');
+  if(!select) return;
+  const target = lastPlayersList.find(p => p.id === select.value);
+  const eligible = target && (target.prestigeLevel||0) >= PRESTIGE_TRADE_POINTS_LEVEL;
+  const input = document.getElementById('tradeRequestPoints');
+  const label = document.getElementById('tradeRequestPointsLabel');
+  if(input) input.disabled = !eligible;
+  if(input && !eligible) input.value = 0;
+  if(label) label.textContent = `✦ Prestige Points${eligible ? '' : ` (${target ? escapeHtml(target.name) : 'this player'} isn't Prestige 5+)`}`;
+}
+
+function renderTradeView(){
+  const lockedNotice = document.getElementById('tradeLockedNotice');
+  const body = document.getElementById('tradeBody');
+  const unlocked = hasTradingUnlocked();
+  lockedNotice.classList.toggle('hidden', unlocked);
+  body.classList.toggle('hidden', !unlocked);
+  setConnBadge(firebaseReady);
+  if(!unlocked) return;
+
+  const myId = getDeviceId();
+  const targets = otherPlayers();
+  const form = document.getElementById('tradeForm');
+  if(!firebaseReady){
+    form.innerHTML = `<div style="font-size:12px;color:var(--text-dim);">Connect live sync (⚙️ Settings) to trade with other players.</div>`;
+  } else if(!targets.length){
+    form.innerHTML = `<div style="font-size:12px;color:var(--text-dim);">No other named players are online yet.</div>`;
+  } else {
+    const pointsEligible = (state.prestigeLevel||0) >= PRESTIGE_TRADE_POINTS_LEVEL;
+    form.innerHTML = `
+      <div>
+        <label>Trade with</label>
+        <select id="tradeTargetSelect">${targets.map(p=>`<option value="${p.id}">${escapeHtml(p.name)} (Prestige ${p.prestigeLevel||0})</option>`).join('')}</select>
+      </div>
+      <div class="trade-cols">
+        <div>
+          <div class="trade-col-title">You give</div>
+          <label>Cards (up to ${TRADE_MAX_CARDS_PER_SIDE})</label>
+          <div class="trade-card-picker" id="tradeOfferCards">${ownedCardOptionsHtml('offer', TRADE_MAX_CARDS_PER_SIDE)}</div>
+          <label>Coins</label>
+          <input type="number" min="0" id="tradeOfferCoins" value="0" />
+          <label>Blood coins</label>
+          <div class="trade-currency-row">
+            ${bloodTypeSelectHtml('tradeOfferBloodType')}
+            <input type="number" min="0" id="tradeOfferBloodAmount" value="0" />
+          </div>
+          <label>🍀 Lucky Charms</label>
+          <input type="number" min="0" id="tradeOfferCharm" value="0" />
+          <label>✦ Prestige Points ${pointsEligible ? '' : '(Prestige 5+ only)'}</label>
+          <input type="number" min="0" id="tradeOfferPoints" value="0" ${pointsEligible ? '' : 'disabled'} />
+        </div>
+        <div>
+          <div class="trade-col-title">You want back</div>
+          <label>Note (describe what you're hoping for — they'll pick the cards themselves)</label>
+          <textarea id="tradeRequestNote" rows="2" maxlength="200" placeholder="e.g. any Mythic Bloodmire card"></textarea>
+          <label>Coins</label>
+          <input type="number" min="0" id="tradeRequestCoins" value="0" />
+          <label>Blood coins</label>
+          <div class="trade-currency-row">
+            ${bloodTypeSelectHtml('tradeRequestBloodType')}
+            <input type="number" min="0" id="tradeRequestBloodAmount" value="0" />
+          </div>
+          <label>🍀 Lucky Charms</label>
+          <input type="number" min="0" id="tradeRequestCharm" value="0" />
+          <label id="tradeRequestPointsLabel">✦ Prestige Points</label>
+          <input type="number" min="0" id="tradeRequestPoints" value="0" />
+        </div>
+      </div>
+      <button class="btn-accent" id="sendTradeBtn">Send trade offer</button>
+    `;
+    updateTradeRequestPointsGate();
+    document.getElementById('tradeTargetSelect').addEventListener('change', updateTradeRequestPointsGate);
+    document.getElementById('tradeOfferCards').addEventListener('change', (e)=> enforceCardPickerMax(e, 'tradeOfferCards'));
+    document.getElementById('sendTradeBtn').addEventListener('click', createTradeOffer);
+  }
+
+  const mine = lastTradesList.filter(t => t.fromId === myId || t.toId === myId);
+  const incoming = mine.filter(t => t.toId === myId && t.status === 'pending');
+  const outgoing = mine.filter(t => t.fromId === myId).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+
+  document.getElementById('tradeIncomingList').innerHTML = incoming.map(renderIncomingTradeHtml).join('');
+  document.getElementById('tradeOutgoingList').innerHTML = outgoing.map(renderOutgoingTradeHtml).join('');
+  incoming.forEach(t=>{
+    const picker = document.getElementById(`tradeAcceptCards-${t.id}`);
+    if(picker) picker.addEventListener('change', (e)=> enforceCardPickerMax(e, `tradeAcceptCards-${t.id}`));
+  });
+}
+
+function createTradeOffer(){
+  if(!firebaseReady || !db) return;
+  const targetId = document.getElementById('tradeTargetSelect').value;
+  const target = lastPlayersList.find(p => p.id === targetId);
+  if(!target) return toast('Pick someone to trade with.');
+
+  const offerCardIds = readCheckedCardIds('tradeOfferCards');
+  const offerCoins = Math.max(0, parseInt(document.getElementById('tradeOfferCoins').value, 10) || 0);
+  const offerBloodType = document.getElementById('tradeOfferBloodType').value;
+  const offerBloodAmount = offerBloodType ? Math.max(0, parseInt(document.getElementById('tradeOfferBloodAmount').value, 10) || 0) : 0;
+  const offerCharm = Math.max(0, parseInt(document.getElementById('tradeOfferCharm').value, 10) || 0);
+  const pointsEligible = (state.prestigeLevel||0) >= PRESTIGE_TRADE_POINTS_LEVEL;
+  const offerPoints = pointsEligible ? Math.max(0, parseInt(document.getElementById('tradeOfferPoints').value, 10) || 0) : 0;
+
+  // Sanity-check against what this device actually has right now — a
+  // courtesy check only (trust-based family app, same as everywhere else in
+  // this file); real enforcement happens again when the trade is applied.
+  if(offerCoins > state.coins) return toast("You don't have that many coins to offer.");
+  if(offerBloodType && offerBloodAmount > (state.bloodCoins[offerBloodType]||0)) return toast(`You don't have that many ${RARITIES[offerBloodType].label} blood coins.`);
+  if(offerCharm > (state.charmCharges||0)) return toast("You don't have that many Lucky Charms to offer.");
+  if(offerPoints > (state.prestigePoints||0)) return toast("You don't have that many Prestige Points to offer.");
+  if(offerCardIds.some(id => (state.owned[id]||0) <= 0)) return toast("You can only offer cards you own.");
+
+  const requestNote = document.getElementById('tradeRequestNote').value.trim().slice(0, 200);
+  const requestCoins = Math.max(0, parseInt(document.getElementById('tradeRequestCoins').value, 10) || 0);
+  const requestBloodType = document.getElementById('tradeRequestBloodType').value;
+  const requestBloodAmount = requestBloodType ? Math.max(0, parseInt(document.getElementById('tradeRequestBloodAmount').value, 10) || 0) : 0;
+  const requestCharm = Math.max(0, parseInt(document.getElementById('tradeRequestCharm').value, 10) || 0);
+  const targetPointsEligible = (target.prestigeLevel||0) >= PRESTIGE_TRADE_POINTS_LEVEL;
+  const requestPoints = targetPointsEligible ? Math.max(0, parseInt(document.getElementById('tradeRequestPoints').value, 10) || 0) : 0;
+
+  if(!offerCardIds.length && !offerCoins && !offerBloodAmount && !offerCharm && !offerPoints
+     && !requestNote && !requestCoins && !requestBloodAmount && !requestCharm && !requestPoints){
+    return toast("Add something to offer or request before sending.");
+  }
+
+  db.collection('trades').add({
+    fromId: getDeviceId(),
+    fromName: state.playerName || 'Anonymous',
+    toId: target.id,
+    toName: target.name || 'Anonymous',
+    offerCardIds, offerCoins, offerBloodType, offerBloodAmount, offerCharm, offerPoints,
+    requestNote, requestCoins, requestBloodType, requestBloodAmount, requestCharm, requestPoints,
+    requestCardIds: [], // filled in by the recipient at accept-time — see acceptTrade()
+    status: 'pending',
+    fromApplied: false,
+    toApplied: false,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  }).then(()=>{
+    toast(`Trade offer sent to ${target.name}!`);
+  }).catch(err=>{
+    console.error(err);
+    toast('Could not send that trade — check your connection.');
+  });
+}
+
+function renderIncomingTradeHtml(t){
+  const bloodOfferStr = t.offerBloodType && t.offerBloodAmount ? `${t.offerBloodAmount} 🩸${(RARITIES[t.offerBloodType]||{}).label||t.offerBloodType}` : '';
+  const bloodRequestStr = t.requestBloodType && t.requestBloodAmount ? `${t.requestBloodAmount} 🩸${(RARITIES[t.requestBloodType]||{}).label||t.requestBloodType}` : '';
+  const offerCards = (t.offerCardIds||[]).map(id => CREATURES.find(c=>c.id===id)).filter(Boolean);
+  const offerParts = [
+    offerCards.length ? offerCards.map(c=>`${c.emoji}${c.name}`).join(', ') : '',
+    t.offerCoins ? `${t.offerCoins} 🪙` : '',
+    bloodOfferStr,
+    t.offerCharm ? `${t.offerCharm} 🍀` : '',
+    t.offerPoints ? `${t.offerPoints} ✦` : '',
+  ].filter(Boolean).join(' · ') || 'nothing structured';
+  const requestParts = [
+    t.requestCoins ? `${t.requestCoins} 🪙` : '',
+    bloodRequestStr,
+    t.requestCharm ? `${t.requestCharm} 🍀` : '',
+    t.requestPoints ? `${t.requestPoints} ✦` : '',
+  ].filter(Boolean).join(' · ') || 'nothing structured';
+
+  const canAffordRequest = (state.coins >= (t.requestCoins||0))
+    && (!t.requestBloodType || (state.bloodCoins[t.requestBloodType]||0) >= (t.requestBloodAmount||0))
+    && ((state.charmCharges||0) >= (t.requestCharm||0))
+    && ((state.prestigePoints||0) >= (t.requestPoints||0));
+
+  return `
+    <div class="trade-entry">
+      <div class="trade-parties">${escapeHtml(t.fromName||'Anonymous')} wants to trade with you<span class="trade-status pending">pending</span></div>
+      <div class="trade-side">They give: ${offerParts}</div>
+      <div class="trade-side">They want: ${requestParts}${t.requestNote ? ` — "${escapeHtml(t.requestNote)}"` : ''}</div>
+      ${!canAffordRequest ? `<div class="trade-side" style="color:var(--mythic);">You don't currently have everything they're asking for — accepting is blocked until you do.</div>` : ''}
+      <label>Optionally include cards of your own (up to ${TRADE_MAX_CARDS_PER_SIDE})</label>
+      <div class="trade-card-picker" id="tradeAcceptCards-${t.id}">${ownedCardOptionsHtml('accept-'+t.id, TRADE_MAX_CARDS_PER_SIDE)}</div>
+      <div class="trade-actions">
+        <button class="btn-accent" data-accept-trade="${t.id}" ${canAffordRequest ? '' : 'disabled'}>Accept</button>
+        <button class="btn-ghost" data-decline-trade="${t.id}">Decline</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderOutgoingTradeHtml(t){
+  const canDismiss = ['declined','completed','cancelled'].includes(t.status);
+  const canCancel = t.status === 'pending';
+  return `
+    <div class="trade-entry">
+      <div class="trade-parties">To ${escapeHtml(t.toName||'Anonymous')}<span class="trade-status ${t.status}">${t.status}</span></div>
+      <div class="trade-side">You give: ${(t.offerCardIds||[]).length} card(s), ${t.offerCoins||0} 🪙${t.offerBloodAmount?`, ${t.offerBloodAmount} 🩸${(RARITIES[t.offerBloodType]||{}).label||''}`:''}${t.offerCharm?`, ${t.offerCharm} 🍀`:''}${t.offerPoints?`, ${t.offerPoints} ✦`:''}</div>
+      <div class="trade-side">You asked for: ${t.requestCoins||0} 🪙${t.requestBloodAmount?`, ${t.requestBloodAmount} 🩸${(RARITIES[t.requestBloodType]||{}).label||''}`:''}${t.requestCharm?`, ${t.requestCharm} 🍀`:''}${t.requestPoints?`, ${t.requestPoints} ✦`:''}${t.requestNote?` — "${escapeHtml(t.requestNote)}"`:''}</div>
+      ${(t.requestCardIds||[]).length ? `<div class="trade-side">They included: ${t.requestCardIds.map(id=>{const c=CREATURES.find(x=>x.id===id);return c?`${c.emoji}${c.name}`:id;}).join(', ')}</div>` : ''}
+      <div class="trade-actions">
+        ${canCancel ? `<button class="btn-ghost" data-cancel-trade="${t.id}">Cancel</button>` : ''}
+        ${canDismiss ? `<button class="btn-ghost" data-cancel-trade="${t.id}">Dismiss</button>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function acceptTrade(tradeId){
+  const t = lastTradesList.find(x => x.id === tradeId);
+  if(!t || t.status !== 'pending') return;
+  const canAfford = (state.coins >= (t.requestCoins||0))
+    && (!t.requestBloodType || (state.bloodCoins[t.requestBloodType]||0) >= (t.requestBloodAmount||0))
+    && ((state.charmCharges||0) >= (t.requestCharm||0))
+    && ((state.prestigePoints||0) >= (t.requestPoints||0));
+  if(!canAfford) return toast("You don't have everything they're asking for.");
+
+  const requestCardIds = readCheckedCardIds(`tradeAcceptCards-${tradeId}`);
+  if(requestCardIds.some(id => (state.owned[id]||0) <= 0)) return toast("You can only include cards you own.");
+
+  // Apply MY side right now: give up what they asked for, receive their offer.
+  applyTradeDelta(
+    { coins: t.requestCoins, bloodCoins: t.requestBloodType ? {[t.requestBloodType]: t.requestBloodAmount} : null, charmCharges: t.requestCharm, prestigePoints: t.requestPoints, cardIds: requestCardIds },
+    { coins: t.offerCoins, bloodCoins: t.offerBloodType ? {[t.offerBloodType]: t.offerBloodAmount} : null, charmCharges: t.offerCharm, prestigePoints: t.offerPoints, cardIds: t.offerCardIds||[] }
+  );
+  renderCollection(); renderCoins(); renderBloodCoins(); updatePullUI(); renderUpgradePanel(); renderRecallUpgradePanel();
+
+  db.collection('trades').doc(tradeId).update({
+    requestCardIds,
+    toApplied: true,
+    status: 'accepted',
+    updatedAt: Date.now(),
+  }).then(()=>{
+    toast(`Trade accepted!${t.offerCoins?` +${t.offerCoins} 🪙`:''} received.`);
+  }).catch(err=>{ console.error(err); toast('Could not sync the accepted trade — check your connection.'); });
+}
+
+function declineTrade(tradeId){
+  if(!db) return;
+  db.collection('trades').doc(tradeId).update({ status:'declined', updatedAt: Date.now() }).catch(err=>console.error(err));
+}
+
+function cancelOrDismissTrade(tradeId){
+  if(!db) return;
+  db.collection('trades').doc(tradeId).delete().catch(err=>console.error(err));
+}
+
+// Applies MY side of a trade I *proposed* (fromId===me) once the recipient
+// has accepted it — mirrors what acceptTrade() does for the recipient's
+// side. Runs on every trades snapshot; idempotent via fromApplied so it only
+// ever applies once even if onSnapshot re-delivers the same accepted state
+// (e.g. reconnect).
+function resolveAcceptedTradesAsProposer(){
+  if(!db) return;
+  const myId = getDeviceId();
+  let changed = false;
+  lastTradesList.filter(t => t.fromId === myId && t.status === 'accepted' && !t.fromApplied).forEach(t=>{
+    applyTradeDelta(
+      { coins: t.offerCoins, bloodCoins: t.offerBloodType ? {[t.offerBloodType]: t.offerBloodAmount} : null, charmCharges: t.offerCharm, prestigePoints: t.offerPoints, cardIds: t.offerCardIds||[] },
+      { coins: t.requestCoins, bloodCoins: t.requestBloodType ? {[t.requestBloodType]: t.requestBloodAmount} : null, charmCharges: t.requestCharm, prestigePoints: t.requestPoints, cardIds: t.requestCardIds||[] }
+    );
+    changed = true;
+    const nextStatus = t.toApplied ? 'completed' : 'accepted';
+    db.collection('trades').doc(t.id).update({ fromApplied: true, status: nextStatus, updatedAt: Date.now() }).catch(err=>console.error(err));
+    toast(`${t.toName} accepted your trade!${t.requestCoins?` +${t.requestCoins} 🪙`:''} received.`);
+  });
+  if(changed){ renderCollection(); renderCoins(); renderBloodCoins(); updatePullUI(); renderUpgradePanel(); renderRecallUpgradePanel(); }
+}
+
+// Deducts `give` from my local state and adds `take` to it, clamped so
+// nothing goes negative (trust-based, same philosophy as this app's other
+// sacrifice/sell functions). Coins are transferred at face value, NOT run
+// through addCoins()'s Prestige multiplier — a trade should move exactly
+// what was agreed, not a bonus-inflated amount.
+function applyTradeDelta(give, take){
+  if(give){
+    if(give.coins) state.coins = Math.max(0, state.coins - give.coins);
+    if(give.bloodCoins) Object.entries(give.bloodCoins).forEach(([r,a])=>{ if(a) state.bloodCoins[r] = Math.max(0, (state.bloodCoins[r]||0) - a); });
+    if(give.charmCharges) state.charmCharges = Math.max(0, (state.charmCharges||0) - give.charmCharges);
+    if(give.prestigePoints) state.prestigePoints = Math.max(0, (state.prestigePoints||0) - give.prestigePoints);
+    if(Array.isArray(give.cardIds)) give.cardIds.forEach(id => { state.owned[id] = Math.max(0, (state.owned[id]||0) - 1); clampShiny(id); });
+  }
+  if(take){
+    if(take.coins){ state.coins += take.coins; state.lifetimeCoins = (state.lifetimeCoins||0) + take.coins; }
+    if(take.bloodCoins) Object.entries(take.bloodCoins).forEach(([r,a])=>{ if(a) state.bloodCoins[r] = (state.bloodCoins[r]||0) + a; });
+    if(take.charmCharges) state.charmCharges = Math.min(CHARM_MAX_STORED_CHARGES, (state.charmCharges||0) + take.charmCharges);
+    if(take.prestigePoints) state.prestigePoints = (state.prestigePoints||0) + take.prestigePoints;
+    if(Array.isArray(take.cardIds)) take.cardIds.forEach(id => { state.owned[id] = (state.owned[id]||0) + 1; });
+  }
+  persist();
+}
+
+document.getElementById('tradeIncomingList').addEventListener('click', (e)=>{
+  const acceptBtn = e.target.closest('[data-accept-trade]');
+  if(acceptBtn) return acceptTrade(acceptBtn.dataset.acceptTrade);
+  const declineBtn = e.target.closest('[data-decline-trade]');
+  if(declineBtn) return declineTrade(declineBtn.dataset.declineTrade);
+});
+document.getElementById('tradeOutgoingList').addEventListener('click', (e)=>{
+  const cancelBtn = e.target.closest('[data-cancel-trade]');
+  if(cancelBtn) return cancelOrDismissTrade(cancelBtn.dataset.cancelTrade);
+});
+
+/* =========================================================
+   PVP BATTLE ENGINE + UI — see the PVP_SENTINEL_SLOTS-etc. constants block
+   above for the card-role/stat design. Backed by the `duels` Firestore
+   collection. Unlike Trading (a two-sided asset exchange that needs both
+   fromApplied/toApplied), a duel only ever has ONE active writer per turn —
+   whoever's turn it is computes the new shared state and writes it; the
+   other side just reads via the same onSnapshot listener. That removes the
+   need for the apply-twice idempotency dance Trading needs.
+   ========================================================= */
+function hasValidPvpDeck(deck){
+  if(!deck || !deck.sentinel) return false;
+  if(!Array.isArray(deck.effects) || deck.effects.length !== PVP_EFFECT_SLOTS || deck.effects.some(x=>!x)) return false;
+  if(!Array.isArray(deck.attacks) || deck.attacks.length !== PVP_ATTACK_SLOTS || deck.attacks.some(x=>!x)) return false;
+  // Duplicates are allowed (see file-level comment above PVP_SENTINEL_SLOTS)
+  // but never more copies than you actually own.
+  const usage = {};
+  [deck.sentinel, ...deck.effects, ...deck.attacks].forEach(id => { usage[id] = (usage[id]||0) + 1; });
+  return Object.entries(usage).every(([id, count]) => (state.owned[id]||0) >= count);
+}
+
+function pvpEligibleCreatures(role){
+  return CREATURES.filter(c => pvpCardRole(c) === role && (state.owned[c.id]||0) > 0);
+}
+
+function pvpSelectOptionsHtml(role, currentValue){
+  const options = pvpEligibleCreatures(role);
+  return `<option value="">-- choose --</option>` + options.map(c =>
+    `<option value="${c.id}" ${c.id===currentValue?'selected':''}>${c.emoji} ${escapeHtml(c.name)} (x${state.owned[c.id]})</option>`
+  ).join('');
+}
+
+// Snapshots a saved deck (ids only) into full stat-bearing card objects at
+// challenge/accept time — combat then only ever operates on these frozen
+// numbers, not live (and possibly-diverging) collection lookups on either
+// device. Shiny status (see PVP_SHINY_STAT_BONUS) is baked in the same way.
+function pvpBuildDeckSnapshot(deck){
+  const cardFromId = (id) => {
+    const creature = CREATURES.find(c => c.id === id);
+    if(!creature) return null;
+    const shiny = (state.ownedShiny[id]||0) > 0;
+    const stats = pvpCardStats(creature, shiny);
+    return { id: creature.id, name: creature.name, emoji: creature.emoji, shiny, ...stats };
+  };
+  return {
+    sentinel: cardFromId(deck.sentinel),
+    effects: deck.effects.map(cardFromId),
+    attacks: deck.attacks.map(cardFromId),
+  };
+}
+
+function renderPvpDeckBuilder(){
+  const deck = state.pvpDeck;
+  const wrap = document.getElementById('pvpDeckBuilder');
+  if(!wrap) return;
+  wrap.innerHTML = `
+    <div>
+      <label>Sentinel — Elder card (1)</label>
+      <select id="pvpSentinelSelect">${pvpSelectOptionsHtml('sentinel', deck.sentinel)}</select>
+    </div>
+    <div class="trade-col-title">Effect cards — Mythic (${PVP_EFFECT_SLOTS})</div>
+    ${[0,1,2].map(i => `<select id="pvpEffectSelect${i}">${pvpSelectOptionsHtml('effect', deck.effects[i])}</select>`).join('')}
+    <div class="trade-col-title">Attack cards (${PVP_ATTACK_SLOTS})</div>
+    ${[0,1,2,3,4,5].map(i => `<select id="pvpAttackSelect${i}">${pvpSelectOptionsHtml('attack', deck.attacks[i])}</select>`).join('')}
+    <button class="btn-accent" id="savePvpDeckBtn">Save deck</button>
+  `;
+  document.getElementById('savePvpDeckBtn').addEventListener('click', savePvpDeck);
+  const statusEl = document.getElementById('pvpDeckStatus');
+  if(statusEl) statusEl.textContent = hasValidPvpDeck(deck)
+    ? '✅ Your deck is complete and ready to battle.'
+    : '⚠️ Fill all 10 slots with cards you own to enable challenges.';
+}
+
+function savePvpDeck(){
+  const sentinel = document.getElementById('pvpSentinelSelect').value || null;
+  const effects = [0,1,2].map(i => document.getElementById(`pvpEffectSelect${i}`).value || null);
+  const attacks = [0,1,2,3,4,5].map(i => document.getElementById(`pvpAttackSelect${i}`).value || null);
+  if(!sentinel || effects.some(x=>!x) || attacks.some(x=>!x)) return toast('Fill every deck slot before saving.');
+  const candidate = { sentinel, effects, attacks };
+  if(!hasValidPvpDeck(candidate)) return toast("That deck uses more copies of a card than you own.");
+  state.pvpDeck = candidate;
+  persist();
+  renderPvpDeckBuilder();
+  renderPvpChallengeForm();
+  pushPlayerStats();
+  toast('Deck saved!');
+}
+
+function pvpEligibleOpponents(){
+  const myId = getDeviceId();
+  return lastPlayersList.filter(p => p.id !== myId && p.hasPvpDeck && (p.name||'').trim());
+}
+
+function renderPvpChallengeForm(){
+  const form = document.getElementById('pvpChallengeForm');
+  if(!form) return;
+  if(!firebaseReady){
+    form.innerHTML = `<div style="font-size:12px;color:var(--text-dim);">Connect live sync (⚙️ Settings) to challenge other players.</div>`;
+    return;
+  }
+  if(!hasValidPvpDeck(state.pvpDeck)){
+    form.innerHTML = `<div style="font-size:12px;color:var(--text-dim);">Finish building your deck above before challenging anyone.</div>`;
+    return;
+  }
+  const opponents = pvpEligibleOpponents();
+  if(!opponents.length){
+    form.innerHTML = `<div style="font-size:12px;color:var(--text-dim);">No other players with a saved deck yet.</div>`;
+    return;
+  }
+  form.innerHTML = `
+    <select id="pvpTargetSelect">${opponents.map(p => `<option value="${p.id}">${escapeHtml(p.name)} (Prestige ${p.prestigeLevel||0})</option>`).join('')}</select>
+    <button class="btn-accent" id="sendPvpChallengeBtn">Send challenge</button>
+  `;
+  document.getElementById('sendPvpChallengeBtn').addEventListener('click', sendPvpChallenge);
+}
+
+function sendPvpChallenge(){
+  if(!firebaseReady || !db) return;
+  const targetId = document.getElementById('pvpTargetSelect').value;
+  const target = lastPlayersList.find(p => p.id === targetId);
+  if(!target) return toast('Pick someone to challenge.');
+  if(!hasValidPvpDeck(state.pvpDeck)) return toast('Finish your deck first.');
+  db.collection('duels').add({
+    fromId: getDeviceId(),
+    fromName: state.playerName || 'Anonymous',
+    toId: target.id,
+    toName: target.name || 'Anonymous',
+    fromDeckSnapshot: pvpBuildDeckSnapshot(state.pvpDeck),
+    toDeckSnapshot: null,
+    status: 'pending',
+    activeId: null,
+    hp: {}, board: {}, unplayed: {},
+    turnCount: 0,
+    log: [`${state.playerName||'Anonymous'} challenged ${target.name||'Anonymous'} to a duel!`],
+    winnerId: null,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  }).then(()=>{
+    toast(`Challenge sent to ${target.name}!`);
+  }).catch(err=>{
+    console.error(err);
+    toast('Could not send that challenge — check your connection.');
+  });
+}
+
+function renderPvpIncomingList(){
+  const myId = getDeviceId();
+  const incoming = lastDuelsList.filter(d => d.toId === myId && d.status === 'pending');
+  const canAccept = hasValidPvpDeck(state.pvpDeck);
+  document.getElementById('pvpIncomingList').innerHTML = incoming.map(d => `
+    <div class="trade-entry">
+      <div class="trade-parties">${escapeHtml(d.fromName||'Anonymous')} challenged you to a duel<span class="trade-status pending">pending</span></div>
+      ${!canAccept ? `<div class="trade-side" style="color:var(--mythic);">Finish your own deck above before accepting.</div>` : ''}
+      <div class="trade-actions">
+        <button class="btn-accent" data-accept-duel="${d.id}" ${canAccept ? '' : 'disabled'}>Accept</button>
+        <button class="btn-ghost" data-decline-duel="${d.id}">Decline</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function acceptPvpDuel(duelId){
+  const d = lastDuelsList.find(x => x.id === duelId);
+  if(!d || d.status !== 'pending') return;
+  if(!hasValidPvpDeck(state.pvpDeck)) return toast('Finish your deck first.');
+  const toSnapshot = pvpBuildDeckSnapshot(state.pvpDeck);
+  const firstActive = Math.random() < 0.5 ? d.fromId : d.toId;
+  const emptyBoard = () => ({ attacks: [], sentinel: null, effectsPlayed: [] });
+  const emptyUnplayed = () => ({ effects: [0,1,2], attacks: [0,1,2,3,4,5], sentinelPlayed: false });
+  db.collection('duels').doc(duelId).update({
+    toDeckSnapshot: toSnapshot,
+    status: 'active',
+    activeId: firstActive,
+    hp: { [d.fromId]: PVP_STARTING_HP, [d.toId]: PVP_STARTING_HP },
+    board: { [d.fromId]: emptyBoard(), [d.toId]: emptyBoard() },
+    unplayed: { [d.fromId]: emptyUnplayed(), [d.toId]: emptyUnplayed() },
+    turnCount: 1,
+    log: [...(d.log||[]), `Duel begins! ${firstActive===d.fromId ? d.fromName : d.toName} goes first.`],
+    updatedAt: Date.now(),
+  }).then(()=>{
+    toast('Duel accepted! Battle begins.');
+  }).catch(err=>{
+    console.error(err);
+    toast('Could not accept — check your connection.');
+  });
+}
+
+function declinePvpDuel(duelId){
+  if(!db) return;
+  db.collection('duels').doc(duelId).update({ status:'declined', updatedAt: Date.now() }).catch(err=>console.error(err));
+}
+
+function renderPvpDuelList(){
+  const myId = getDeviceId();
+  const mine = lastDuelsList
+    .filter(d => (d.fromId === myId || d.toId === myId) && d.status !== 'pending')
+    .sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0));
+  document.getElementById('pvpDuelList').innerHTML = mine.map(d => {
+    const oppName = d.fromId === myId ? d.toName : d.fromName;
+    const isMyTurn = d.status === 'active' && d.activeId === myId;
+    const resultLabel = d.status === 'finished' ? (d.winnerId === myId ? '🏆 You won!' : '💀 You lost')
+      : d.status === 'declined' ? 'Declined'
+      : (isMyTurn ? '⚡ Your turn!' : "Waiting on opponent...");
+    return `
+      <div class="trade-entry">
+        <div class="trade-parties">vs ${escapeHtml(oppName||'Anonymous')}<span class="trade-status ${d.status}">${d.status}</span></div>
+        <div class="trade-side">${resultLabel}</div>
+        <div class="trade-actions"><button class="btn-accent" data-open-duel="${d.id}">Open</button></div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderPvpView(){
+  setConnBadge(firebaseReady);
+  renderPvpDeckBuilder();
+  renderPvpChallengeForm();
+  renderPvpIncomingList();
+  renderPvpDuelList();
+}
+
+function pvpBoardHtml(board){
+  if(!board) return '';
+  const parts = [];
+  if(board.sentinel){
+    const s = board.sentinel;
+    parts.push(`<div class="pvp-unit ${!s.active?'charging':''}"><span class="nm">${s.emoji}${escapeHtml(s.name)}${s.active?'':` (charging, ${s.chargeLeft} left)`}</span><span>${s.alive?`${Math.max(0,s.curHp)}/${s.hp} HP`:'💀'}</span></div>`);
+  }
+  (board.attacks||[]).forEach(a=>{
+    parts.push(`<div class="pvp-unit"><span class="nm">${a.emoji}${escapeHtml(a.name)}</span><span>${a.alive?`${Math.max(0,a.curHp)}/${a.hp} HP`:'💀'}</span></div>`);
+  });
+  (board.effectsPlayed||[]).forEach(e=>{
+    parts.push(`<div class="pvp-unit"><span class="nm">${e.emoji}${escapeHtml(e.name)}</span><span>played</span></div>`);
+  });
+  return parts.join('');
+}
+
+function openPvpBattle(duelId){
+  currentPvpDuelId = duelId;
+  document.getElementById('pvpBattleModal').classList.remove('hidden');
+  renderPvpBattleModal();
+}
+
+function renderPvpBattleModal(){
+  const d = lastDuelsList.find(x => x.id === currentPvpDuelId);
+  if(!d) return;
+  const myId = getDeviceId();
+  const oppId = d.fromId === myId ? d.toId : d.fromId;
+  const myName = d.fromId === myId ? d.fromName : d.toName;
+  const oppName = d.fromId === myId ? d.toName : d.fromName;
+  document.getElementById('pvpBattleTitle').textContent = `${myName} vs ${oppName}`;
+
+  const turnNote = document.getElementById('pvpBattleTurnNote');
+  if(d.status === 'finished') turnNote.textContent = d.winnerId === myId ? '🏆 You won this duel!' : '💀 You lost this duel.';
+  else if(d.status === 'declined') turnNote.textContent = 'This challenge was declined.';
+  else turnNote.textContent = d.activeId === myId ? "It's your turn!" : `Waiting on ${oppName}...`;
+
+  const myHp = (d.hp && d.hp[myId]) ?? PVP_STARTING_HP;
+  const oppHp = (d.hp && d.hp[oppId]) ?? PVP_STARTING_HP;
+  document.getElementById('pvpMyHpLabel').textContent = `You: ${Math.max(0,myHp)}/${PVP_STARTING_HP}`;
+  document.getElementById('pvpMyHpFill').style.width = `${Math.max(0, myHp/PVP_STARTING_HP*100)}%`;
+  document.getElementById('pvpOppHpLabel').textContent = `${oppName}: ${Math.max(0,oppHp)}/${PVP_STARTING_HP}`;
+  document.getElementById('pvpOppHpFill').style.width = `${Math.max(0, oppHp/PVP_STARTING_HP*100)}%`;
+
+  document.getElementById('pvpMyBoard').innerHTML = pvpBoardHtml(d.board && d.board[myId]);
+  document.getElementById('pvpOppBoard').innerHTML = pvpBoardHtml(d.board && d.board[oppId]);
+
+  const logEl = document.getElementById('pvpLog');
+  logEl.innerHTML = (d.log||[]).slice(-40).map(l => `<div>${escapeHtml(l)}</div>`).join('');
+  logEl.scrollTop = logEl.scrollHeight;
+
+  const actionPanel = document.getElementById('pvpActionPanel');
+  if(d.status !== 'active' || d.activeId !== myId){
+    actionPanel.innerHTML = '';
+    return;
+  }
+  const mySnapshot = d.fromId === myId ? d.fromDeckSnapshot : d.toDeckSnapshot;
+  const myUnplayed = d.unplayed && d.unplayed[myId];
+  if(!mySnapshot || !myUnplayed){ actionPanel.innerHTML = ''; return; }
+  let html = '';
+  myUnplayed.attacks.forEach(idx => {
+    const c = mySnapshot.attacks[idx];
+    html += `<button class="btn-accent pvp-action-btn" data-pvp-action="summon_attack" data-pvp-index="${idx}">Summon ${c.emoji}${escapeHtml(c.name)} (Attack)</button>`;
+  });
+  myUnplayed.effects.forEach(idx => {
+    const c = mySnapshot.effects[idx];
+    html += `<button class="btn-accent pvp-action-btn" data-pvp-action="summon_effect" data-pvp-index="${idx}">Play ${c.emoji}${escapeHtml(c.name)} (Effect)</button>`;
+  });
+  if(!myUnplayed.sentinelPlayed){
+    const c = mySnapshot.sentinel;
+    html += `<button class="btn-accent pvp-action-btn" data-pvp-action="summon_sentinel">Summon ${c.emoji}${escapeHtml(c.name)} (Sentinel — ${PVP_SENTINEL_SUMMON_TURNS}-turn charge)</button>`;
+  }
+  html += `<button class="btn-ghost pvp-action-btn" data-pvp-action="pass">Pass (attackers only)</button>`;
+  actionPanel.innerHTML = html;
+}
+
+function submitPvpAction(type, index){
+  const d = lastDuelsList.find(x => x.id === currentPvpDuelId);
+  if(!d || d.status !== 'active') return;
+  const myId = getDeviceId();
+  if(d.activeId !== myId) return;
+  const updated = resolvePvpAction(d, myId, { type, index });
+  db.collection('duels').doc(currentPvpDuelId).update(updated).catch(err=>{
+    console.error(err);
+    toast('Could not sync your move — check your connection.');
+  });
+}
+
+function pvpDeepClone(x){ return JSON.parse(JSON.stringify(x)); }
+
+function computePvpTotalSpeed(board){
+  if(!board) return 0;
+  let total = 0;
+  (board.attacks||[]).forEach(a => { if(a.alive) total += a.spd; });
+  if(board.sentinel && board.sentinel.alive) total += board.sentinel.spd;
+  return total;
+}
+
+function pvpLowestHpTarget(board){
+  const candidates = [];
+  (board.attacks||[]).forEach(a => { if(a.alive) candidates.push(a); });
+  if(board.sentinel && board.sentinel.alive) candidates.push(board.sentinel);
+  if(!candidates.length) return null;
+  return candidates.reduce((best,c) => c.curHp < best.curHp ? c : best, candidates[0]);
+}
+
+function pvpPickWeakenTarget(oppBoard){
+  const candidates = [];
+  (oppBoard.attacks||[]).forEach(a => { if(a.alive) candidates.push(a); });
+  if(oppBoard.sentinel && oppBoard.sentinel.alive) candidates.push(oppBoard.sentinel);
+  if(!candidates.length) return null;
+  return candidates[Math.floor(Math.random()*candidates.length)];
+}
+
+function pvpPickHealTarget(myBoard){
+  const candidates = [];
+  if(myBoard.sentinel && myBoard.sentinel.alive) candidates.push(myBoard.sentinel);
+  (myBoard.attacks||[]).forEach(a => { if(a.alive) candidates.push(a); });
+  if(!candidates.length) return null;
+  return candidates.reduce((best,c) => (c.curHp/c.hp) < (best.curHp/best.hp) ? c : best, candidates[0]);
+}
+
+// The core turn resolver — a pure function (no DOM/Firestore access) so it's
+// straightforward to unit test. Takes the current duel doc + who's acting +
+// what they chose, returns the partial field set to write back to Firestore.
+// See the file-level PVP comment block for the full rules being implemented:
+// one summon per turn, all your already-standing attackers (+active
+// Sentinel) auto-swing every turn, can't hit the opponent's HP directly
+// while they still have a live attacker/Sentinel standing, Sentinel takes
+// PVP_SENTINEL_SUMMON_TURNS of the owner's own turns to "charge in", and
+// priority each turn goes to whoever currently has more on-board Speed.
+function resolvePvpAction(duel, actorId, action){
+  const d = pvpDeepClone(duel);
+  const oppId = actorId === d.fromId ? d.toId : d.fromId;
+  const mySnapshot = actorId === d.fromId ? d.fromDeckSnapshot : d.toDeckSnapshot;
+  const myBoard = d.board[actorId];
+  const myUnplayed = d.unplayed[actorId];
+  const oppBoard = d.board[oppId];
+  const actorName = actorId === d.fromId ? d.fromName : d.toName;
+  const log = d.log || [];
+  function pushLog(msg){ log.push(msg); if(log.length > 60) log.shift(); }
+
+  let justSummonedSentinel = false;
+  // Per the suggestion's exact wording — "every PREVIOUSLY summoned attack
+  // card will be able to attack" — a card summoned THIS turn doesn't also
+  // swing this same turn; it joins the board and attacks starting next turn.
+  // Tracked by array index (not object identity) since resolvePvpAction
+  // returns plain-object partial updates, not the same references callers
+  // passed in.
+  let justSummonedAttackArrayIndex = -1;
+
+  if(action.type === 'summon_attack' && myUnplayed.attacks.includes(action.index)){
+    const card = mySnapshot.attacks[action.index];
+    myBoard.attacks.push({ id:card.id, name:card.name, emoji:card.emoji, hp:card.hp, atk:card.atk, spd:card.spd, curHp:card.hp, alive:true });
+    justSummonedAttackArrayIndex = myBoard.attacks.length - 1;
+    myUnplayed.attacks = myUnplayed.attacks.filter(i => i !== action.index);
+    pushLog(`${actorName} summoned ${card.emoji}${card.name}.`);
+  } else if(action.type === 'summon_effect' && myUnplayed.effects.includes(action.index)){
+    const card = mySnapshot.effects[action.index];
+    myBoard.effectsPlayed.push({ id:card.id, name:card.name, emoji:card.emoji });
+    myUnplayed.effects = myUnplayed.effects.filter(i => i !== action.index);
+    if(card.effectType === 'weaken_spd'){
+      const target = pvpPickWeakenTarget(oppBoard);
+      if(target){ target.spd = Math.max(1, target.spd - 4); pushLog(`${actorName} played ${card.emoji}${card.name} — weakened ${target.emoji}${target.name}'s Speed!`); }
+      else pushLog(`${actorName} played ${card.emoji}${card.name} — no target, it fizzled.`);
+    } else if(card.effectType === 'weaken_atk'){
+      const target = pvpPickWeakenTarget(oppBoard);
+      if(target){ target.atk = Math.max(0, target.atk - 6); pushLog(`${actorName} played ${card.emoji}${card.name} — weakened ${target.emoji}${target.name}'s Attack!`); }
+      else pushLog(`${actorName} played ${card.emoji}${card.name} — no target, it fizzled.`);
+    } else if(card.effectType === 'heal'){
+      const target = pvpPickHealTarget(myBoard);
+      if(target){ target.curHp = Math.min(target.hp, target.curHp + 40); pushLog(`${actorName} played ${card.emoji}${card.name} — healed ${target.emoji}${target.name}!`); }
+      else pushLog(`${actorName} played ${card.emoji}${card.name} — nothing to heal.`);
+    }
+  } else if(action.type === 'summon_sentinel' && !myUnplayed.sentinelPlayed && !myBoard.sentinel){
+    const card = mySnapshot.sentinel;
+    myBoard.sentinel = { id:card.id, name:card.name, emoji:card.emoji, hp:card.hp, atk:card.atk, spd:card.spd, curHp:card.hp, alive:true, active:false, chargeLeft: PVP_SENTINEL_SUMMON_TURNS - 1 };
+    myUnplayed.sentinelPlayed = true;
+    justSummonedSentinel = true;
+    pushLog(`${actorName} began summoning ${card.emoji}${card.name} (Sentinel) — ${PVP_SENTINEL_SUMMON_TURNS} turns to arrive.`);
+  } else {
+    pushLog(`${actorName} passed.`);
+  }
+
+  // Sentinel charge progression: decrements once per the owner's OWN turn,
+  // skipping the very turn it was first played (that turn already counted).
+  if(myBoard.sentinel && !myBoard.sentinel.active && !justSummonedSentinel){
+    myBoard.sentinel.chargeLeft = Math.max(0, myBoard.sentinel.chargeLeft - 1);
+    if(myBoard.sentinel.chargeLeft <= 0){
+      myBoard.sentinel.active = true;
+      pushLog(`${actorName}'s ${myBoard.sentinel.emoji}${myBoard.sentinel.name} has finished charging and joins the battle!`);
+    }
+  }
+
+  // Auto-attack: every alive attacker already standing BEFORE this turn
+  // (plus an active, alive Sentinel) swings — a card summoned this very turn
+  // sits out until next turn, see justSummonedAttackArrayIndex above. Can't
+  // hit the opponent's HP pool directly while they still have a live
+  // attacker/Sentinel to soak it.
+  let finished = false;
+  const attackers = myBoard.attacks.filter((a, i) => a.alive && i !== justSummonedAttackArrayIndex);
+  if(myBoard.sentinel && myBoard.sentinel.active && myBoard.sentinel.alive) attackers.push(myBoard.sentinel);
+  for(const attacker of attackers){
+    if(finished) break;
+    const target = pvpLowestHpTarget(oppBoard);
+    if(target){
+      target.curHp -= attacker.atk;
+      if(target.curHp <= 0){
+        target.alive = false;
+        pushLog(`${actorName}'s ${attacker.emoji}${attacker.name} defeated ${target.emoji}${target.name}!`);
+      } else {
+        pushLog(`${actorName}'s ${attacker.emoji}${attacker.name} hit ${target.emoji}${target.name} for ${attacker.atk}.`);
+      }
+    } else {
+      d.hp[oppId] = (d.hp[oppId]||0) - attacker.atk;
+      pushLog(`${actorName}'s ${attacker.emoji}${attacker.name} struck directly for ${attacker.atk}!`);
+      if(d.hp[oppId] <= 0){
+        finished = true;
+        d.status = 'finished';
+        d.winnerId = actorId;
+        pushLog(`🏆 ${actorName} wins the duel!`);
+      }
+    }
+  }
+
+  if(!finished){
+    const mySpeed = computePvpTotalSpeed(myBoard);
+    const oppSpeed = computePvpTotalSpeed(oppBoard);
+    d.activeId = mySpeed > oppSpeed ? actorId : oppSpeed > mySpeed ? oppId : (Math.random() < 0.5 ? actorId : oppId);
+    d.turnCount = (d.turnCount||0) + 1;
+  }
+
+  d.log = log;
+  d.updatedAt = Date.now();
+  return {
+    board: d.board,
+    unplayed: d.unplayed,
+    hp: d.hp,
+    activeId: d.activeId,
+    turnCount: d.turnCount,
+    log: d.log,
+    status: d.status,
+    winnerId: d.winnerId,
+    updatedAt: d.updatedAt,
+  };
+}
+
+document.getElementById('pvpBattleCloseBtn').addEventListener('click', ()=>{
+  document.getElementById('pvpBattleModal').classList.add('hidden');
+  currentPvpDuelId = null;
+});
+document.getElementById('pvpIncomingList').addEventListener('click', (e)=>{
+  const acceptBtn = e.target.closest('[data-accept-duel]');
+  if(acceptBtn) return acceptPvpDuel(acceptBtn.dataset.acceptDuel);
+  const declineBtn = e.target.closest('[data-decline-duel]');
+  if(declineBtn) return declinePvpDuel(declineBtn.dataset.declineDuel);
+});
+document.getElementById('pvpDuelList').addEventListener('click', (e)=>{
+  const openBtn = e.target.closest('[data-open-duel]');
+  if(openBtn) return openPvpBattle(openBtn.dataset.openDuel);
+});
+document.getElementById('pvpActionPanel').addEventListener('click', (e)=>{
+  const btn = e.target.closest('[data-pvp-action]');
+  if(!btn) return;
+  const type = btn.dataset.pvpAction;
+  const index = btn.dataset.pvpIndex !== undefined ? parseInt(btn.dataset.pvpIndex, 10) : undefined;
+  submitPvpAction(type, index);
+});
 
 /* =========================================================
    LIFETIME STATS MODAL — fun, read-only animated charts built from the
