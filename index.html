@@ -704,6 +704,7 @@
       <div class="pull-actions">
         <button class="btn-accent" id="pullOneBtn">Pull x1 — 50 🪙</button>
         <button class="btn-accent" id="pullTenBtn">Pull x10 — 450 🪙</button>
+        <button class="btn-accent" id="pullHundredBtn">Pull x100 — 9000 🪙</button>
       </div>
       <div class="clicker-row">
         <button class="btn-gold" id="playMemoryBtn">🧠 Play Memory Match for coins</button>
@@ -2461,7 +2462,13 @@ function unlockCharm(){
 document.getElementById('unlockCharmBtn').addEventListener('click', unlockCharm);
 
 /* ---------- PULLING ---------- */
-const PULL_COST = { all: { single:50, ten:450 }, themed: { single:90, ten:800 } };
+// The x100 tier (『Go1d£n ₩aff€r』, 2026-07-24 board suggestion: "100x pull
+// for 2X the price") is deliberately NOT a bulk discount — it's priced at
+// exactly double the x10 tier's per-pull rate (450/10=45 -> 90/pull; 800/10=80
+// -> 160/pull), a premium convenience option for players sitting on a big
+// coin surplus who'd rather not click x10 ten times in a row, not a cheaper
+// way to pull.
+const PULL_COST = { all: { single:50, ten:450, hundred:9000 }, themed: { single:90, ten:800, hundred:16000 } };
 
 // null = pull from the full 49-creature pool. A set id = themed pull, scoped
 // to just that set's 7 creatures (rarity odds renormalized over whatever
@@ -2483,6 +2490,7 @@ function pullCostMultiplier(){
 }
 function pullCostSingle(){ return Math.round((selectedSetId ? PULL_COST.themed.single : PULL_COST.all.single) * pullCostMultiplier()); }
 function pullCostTen(){ return Math.round((selectedSetId ? PULL_COST.themed.ten : PULL_COST.all.ten) * pullCostMultiplier()); }
+function pullCostHundred(){ return Math.round((selectedSetId ? PULL_COST.themed.hundred : PULL_COST.all.hundred) * pullCostMultiplier()); }
 
 // `boosted` (from a Lucky Charm charge — see CHARM_LUCK_MULTIPLIER /
 // CHARM_LUCK_MULTIPLIER_TOP) multiplies just the Elder/Mythic/Divine weights
@@ -2581,6 +2589,7 @@ function updatePullUI(){
     : `Pulling from: <b>🎲 All Characters</b>`;
   document.getElementById('pullOneBtn').textContent = `Pull x1 — ${pullCostSingle()} 🪙`;
   document.getElementById('pullTenBtn').textContent = `Pull x10 — ${pullCostTen()} 🪙`;
+  document.getElementById('pullHundredBtn').textContent = `Pull x100 — ${pullCostHundred()} 🪙`;
 
   const pool = creaturePoolForPull();
   const availableRarities = Array.from(new Set(pool.map(c => c.rarity)));
@@ -2677,6 +2686,10 @@ function playChime(notes, opts){
    game, not compete with it. */
 const AMBIENT_VOLUME = 0.14;
 const AMBIENT_TEMPO = 72;                        // bpm — slow, unhurried
+// AMBIENT_BEAT_SEC/AMBIENT_BAR_SEC are kept for reference but no longer read
+// directly by the scheduler — see scheduleAmbientBar()/MUSIC_PROFILES below,
+// which compute beat/bar length per-mode now that battle music (a second,
+// faster tempo) exists alongside the original ambient loop.
 const AMBIENT_BEAT_SEC = 60 / AMBIENT_TEMPO;
 const AMBIENT_BAR_SEC = AMBIENT_BEAT_SEC * 4;
 // Four bars, low to high tones per chord. Cycles forever — this is the only
@@ -2687,6 +2700,42 @@ const AMBIENT_CHORDS = [
   [174.61, 220.00, 261.63, 329.63], // Fmaj7 — F3 A3 C4 E4
   [196.00, 246.94, 293.66, 440.00], // Gadd9 — G3 B3 D4 A4
 ];
+
+// PvP battle music (Han-Ji06, 2026-07-24 board suggestion: "Add battle music
+// for pvp mode") — a second chord/tempo profile for the same generative
+// engine above, rather than a separate audio system. A minor, slightly
+// faster progression (Dm7 - Bb - Fmaj7 - C, 108bpm vs the ambient loop's
+// 72bpm) reads as more tense/driving without needing a second scheduler or
+// any new audio file. Swapped in only while the PvP battle modal is open —
+// see setMusicMode()/openPvpBattle()/the battle-modal close handler below —
+// and swapped back to the normal ambient profile on close.
+const PVP_BATTLE_TEMPO = 108;
+const PVP_BATTLE_CHORDS = [
+  [146.83, 174.61, 220.00, 261.63], // Dm7  — D3 F3 A3 C4
+  [116.54, 146.83, 174.61, 220.00], // Bbmaj7 (2nd inv-ish) — Bb2 D3 F3 A3
+  [174.61, 220.00, 261.63, 329.63], // Fmaj7 — F3 A3 C4 E4
+  [130.81, 164.81, 196.00, 233.08], // C7    — C3 E3 G3 Bb3
+];
+
+const MUSIC_PROFILES = {
+  ambient: { chords: AMBIENT_CHORDS, tempo: AMBIENT_TEMPO },
+  battle:  { chords: PVP_BATTLE_CHORDS, tempo: PVP_BATTLE_TEMPO },
+};
+let musicMode = 'ambient';
+
+// Switches which chord set/tempo the scheduler below pulls from. Safe to
+// call redundantly (no-ops if already in that mode) and safe to call before
+// the engine has actually started (initBgMusic's gesture-gated start just
+// reads musicMode fresh, whatever it is, the first time it runs).
+function setMusicMode(mode){
+  if(!MUSIC_PROFILES[mode] || musicMode === mode) return;
+  musicMode = mode;
+  // Re-align the next bar boundary so a mode switch mid-bar doesn't leave a
+  // stale bar length hanging around — the next scheduled bar picks up the
+  // new tempo cleanly instead of drifting.
+  const ctx = audioCtx;
+  if(ctx && ambientStarted) ambientNextBarTime = Math.max(ambientNextBarTime, ctx.currentTime + 0.05);
+}
 
 let ambientGain = null, ambientFilter = null, ambientStarted = false;
 let ambientNextBarTime = 0, ambientBarIndex = 0, ambientSchedulerId = null;
@@ -2771,9 +2820,12 @@ function playAmbientArpNote(ctx, freq, startAt, dur, pan){
 }
 
 function scheduleAmbientBar(ctx){
-  const chord = AMBIENT_CHORDS[ambientBarIndex % AMBIENT_CHORDS.length];
+  const profile = MUSIC_PROFILES[musicMode] || MUSIC_PROFILES.ambient;
+  const beatSec = 60 / profile.tempo;
+  const barSec = beatSec * 4;
+  const chord = profile.chords[ambientBarIndex % profile.chords.length];
   const barStart = ambientNextBarTime;
-  playAmbientPad(ctx, chord, barStart, AMBIENT_BAR_SEC);
+  playAmbientPad(ctx, chord, barStart, barSec);
   // A soft, sparse eighth-note arpeggio — random gaps so it feels generative
   // rather than mechanical, and only on every other bar so it stays a light
   // accent instead of a busy melody line.
@@ -2781,12 +2833,12 @@ function scheduleAmbientBar(ctx){
     const pattern = [0, 2, 1, 3, 2, 0, 3, 1];
     pattern.forEach((idx, step) => {
       if(Math.random() < 0.35) return;
-      const at = barStart + step * (AMBIENT_BEAT_SEC / 2);
-      playAmbientArpNote(ctx, chord[idx], at, AMBIENT_BEAT_SEC * 0.9, (step % 4 - 1.5) / 3);
+      const at = barStart + step * (beatSec / 2);
+      playAmbientArpNote(ctx, chord[idx], at, beatSec * 0.9, (step % 4 - 1.5) / 3);
     });
   }
   ambientBarIndex++;
-  ambientNextBarTime += AMBIENT_BAR_SEC;
+  ambientNextBarTime += barSec;
 }
 
 // Standard Web Audio "lookahead" scheduler: wakes up every 200ms and
@@ -2881,6 +2933,7 @@ async function playGachaAnimation(){
 function setPullControlsDisabled(disabled){
   document.getElementById('pullOneBtn').disabled = disabled;
   document.getElementById('pullTenBtn').disabled = disabled;
+  document.getElementById('pullHundredBtn').disabled = disabled;
   document.querySelectorAll('.set-chip').forEach(b => b.disabled = disabled);
 }
 
@@ -2945,7 +2998,34 @@ document.getElementById('pullTenBtn').addEventListener('click', async ()=>{
   persist();
   renderCoins();
   renderBloodCoins();
-  showMultiReveal(results);
+  showMultiReveal(results, '10x Pull Results');
+  renderCollection();
+  updatePullUI();
+  announceSetCompletions(newlyCompleted);
+  checkAchievements();
+  setPullControlsDisabled(false);
+});
+
+// x100 tier — see the PULL_COST comment above for the pricing rationale.
+// Reuses the same pullOne()/resolveDivinePulls()/showMultiReveal() plumbing
+// as the x10 button; a batch this size can in principle contain several
+// Divine hits, each resolved through its own Trial in sequence exactly like
+// a x10 batch would, just potentially more of them.
+document.getElementById('pullHundredBtn').addEventListener('click', async ()=>{
+  const cost = pullCostHundred();
+  if(state.coins < cost) return toast("Not enough coins yet — keep collecting!");
+  const pool = creaturePoolForPull();
+  setPullControlsDisabled(true);
+  await playGachaAnimation();
+  state.coins -= cost;
+  const results = [];
+  for(let i=0;i<100;i++) results.push(pullOne(pool));
+  await resolveDivinePulls(results);
+  const newlyCompleted = checkSetCompletions();
+  persist();
+  renderCoins();
+  renderBloodCoins();
+  showMultiReveal(results, '100x Pull Results');
   renderCollection();
   updatePullUI();
   announceSetCompletions(newlyCompleted);
@@ -2993,9 +3073,9 @@ function showSingleReveal({creature, wasOwned, pity, shiny, isDivine, divineWon}
 
 const RARITY_RANK = ['common', 'rare', 'epic', 'legendary', 'elder', 'mythic', 'divine'];
 
-function showMultiReveal(results){
+function showMultiReveal(results, label){
   // One combined chime for the whole batch, pitched to the best rarity
-  // pulled — ten separate overlapping chimes would just be noise.
+  // pulled — ten (or a hundred) separate overlapping chimes would just be noise.
   const bestRarity = results.reduce((best, r) =>
     RARITY_RANK.indexOf(r.creature.rarity) > RARITY_RANK.indexOf(best) ? r.creature.rarity : best, 'common');
   sfxPull(bestRarity, results.some(r => r.shiny));
@@ -3021,7 +3101,7 @@ function showMultiReveal(results){
   const newCount = results.filter(r=>!r.wasOwned && !(r.isDivine && !r.divineWon)).length;
   const shinyCount = results.filter(r=>r.shiny && !(r.isDivine && !r.divineWon)).length;
   revealCard.innerHTML = `
-    <div class="reveal-name">10x Pull Results</div>
+    <div class="reveal-name">${label || '10x Pull Results'}</div>
     <div class="reveal-flavor">${newCount} new character${newCount===1?'':'s'} found!${shinyCount ? ` ✨ ${shinyCount} shiny!` : ''}</div>
     <div class="multi-grid">${cells}</div>
     <button class="btn-accent" id="closeRevealBtn">Nice!</button>
@@ -4675,6 +4755,7 @@ function pvpBoardHtml(board){
 function openPvpBattle(duelId){
   currentPvpDuelId = duelId;
   document.getElementById('pvpBattleModal').classList.remove('hidden');
+  setMusicMode('battle');
   renderPvpBattleModal();
 }
 
@@ -4905,6 +4986,7 @@ function resolvePvpAction(duel, actorId, action){
 document.getElementById('pvpBattleCloseBtn').addEventListener('click', ()=>{
   document.getElementById('pvpBattleModal').classList.add('hidden');
   currentPvpDuelId = null;
+  setMusicMode('ambient');
 });
 document.getElementById('pvpIncomingList').addEventListener('click', (e)=>{
   const acceptBtn = e.target.closest('[data-accept-duel]');
