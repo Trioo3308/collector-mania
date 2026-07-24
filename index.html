@@ -565,6 +565,7 @@
       <div class="clicker-row">
         <button class="btn-gold" id="playMemoryBtn">🧠 Play Memory Match for coins</button>
         <button class="btn-gold hidden" id="playRecallBtn">🎯 Play Creature Recall for coins</button>
+        <button class="btn-gold hidden" id="playCharmBtn">🍀 Play Lucky Charm for a luck boost</button>
       </div>
       <div class="minigame-unlock hidden" id="prestigeLockedNotice">
         <div class="unlock-desc">🔒 <b>Blood Sacrifice</b> — sacrifice duplicate characters for blood coins, spend them on minigame upgrades and unlocks. Permanently unlocks at <b>Prestige 1</b> (⚙️ see Settings).</div>
@@ -573,6 +574,10 @@
         <div class="minigame-unlock hidden" id="recallLockCard">
           <div class="unlock-desc">🔒 <b>Creature Recall</b> — watch the sequence of creatures light up, then repeat it back in order. Gets harder each round, pays out for how far you get. Unlock it permanently by sacrificing duplicates for blood coins.</div>
           <button class="upgrade-buy-btn" id="unlockRecallBtn">Unlock (5 🩸Common + 5 🩸Rare + 3 🩸Epic + 1 🩸Legendary)</button>
+        </div>
+        <div class="minigame-unlock hidden" id="charmLockCard">
+          <div class="unlock-desc">🔒 <b>Lucky Charm</b> — a timed Memory Match with 3 strikes allowed. Clear the board before time or strikes run out to charge up boosted odds for Elder and Mythic pulls. Unlock it permanently by sacrificing Elder/Mythic duplicates for blood coins.</div>
+          <button class="upgrade-buy-btn" id="unlockCharmBtn">Unlock (2 🩸Elder + 1 🩸Mythic)</button>
         </div>
         <div class="upgrade-panel">
           <h3>🩸 Memory Match Upgrade</h3>
@@ -600,7 +605,8 @@
         Coins also trickle in over time based on your collection.<br>
         7 themed collections, 49 characters total — complete a set for a bonus.<br>
         Play Memory Match for coins — fewer moves and a faster time earn more.<br>
-        <span id="pityLine" class="pity-line"></span>
+        <span id="pityLine" class="pity-line"></span><br>
+        <span id="charmLine" class="pity-line hidden"></span>
       </div>
       <div class="rarity-legend" id="rarityLegend"></div>
     </div>
@@ -808,6 +814,27 @@
     </div>
     <div class="memory-grid recall-grid" id="recallGrid"></div>
     <div class="memory-result hidden" id="recallResult"></div>
+  </div>
+</div>
+
+<!-- LUCKY CHARM MODAL — timed Memory Match with limited strikes; a win
+     charges up boosted Elder/Mythic pull odds (see CHARM_LUCK_MULTIPLIER). -->
+<div class="modal-backdrop hidden" id="charmModal">
+  <div class="memory-card">
+    <div class="memory-header">
+      <div>
+        <div class="memory-title">🍀 Lucky Charm</div>
+        <div class="memory-sub">Clear the board before time or strikes run out to charge up boosted Elder/Mythic pull odds.</div>
+      </div>
+      <button class="btn-ghost" id="charmCloseBtn">✕</button>
+    </div>
+    <div class="memory-stats">
+      <div class="stat-chip"><b id="charmTime">40s</b>Time left</div>
+      <div class="stat-chip"><b id="charmStrikes">0/3</b>Strikes</div>
+      <div class="stat-chip"><b id="charmMatches">0/6</b>Matches</div>
+    </div>
+    <div class="memory-grid" id="charmGrid"></div>
+    <div class="memory-result hidden" id="charmResult"></div>
   </div>
 </div>
 
@@ -1219,6 +1246,8 @@ function defaultSave(){
     prestigePoints: 0,           // Prestige Shop currency — see BANNERS/PRESTIGE_POINTS_PER_PRESTIGE
     unlockedBanners: [],         // banner ids purchased from the Prestige Shop
     equippedBanner: '',          // currently-equipped banner id, or '' for none
+    charmCharges: 0,             // stored Lucky Charm pull-boosts — see CHARM_LUCK_MULTIPLIER
+    hasCharmFlawless: false,     // cleared Lucky Charm with 0 strikes used
   };
 }
 
@@ -1245,6 +1274,8 @@ function migrateSave(data){
   merged.unlockedAchievements = Array.isArray(data && data.unlockedAchievements) ? data.unlockedAchievements.slice() : [];
   merged.hasPerfectMemoryMatch = !!(data && data.hasPerfectMemoryMatch);
   merged.hasRecallFlawless = !!(data && data.hasRecallFlawless);
+  merged.charmCharges = (data && Number.isInteger(data.charmCharges)) ? data.charmCharges : 0;
+  merged.hasCharmFlawless = !!(data && data.hasCharmFlawless);
   merged.recallUpgradeLevel = (data && Number.isInteger(data.recallUpgradeLevel)) ? data.recallUpgradeLevel : 0;
   merged.showcaseCreatureId = (data && typeof data.showcaseCreatureId === 'string') ? data.showcaseCreatureId : null;
   merged.soundEnabled = (data && typeof data.soundEnabled === 'boolean') ? data.soundEnabled : true;
@@ -1347,6 +1378,7 @@ function doPrestige(){
   state.memoryUpgradeLevel = 0;
   state.recallUpgradeLevel = 0;
   state.unlockedMinigames = ['memory'];
+  state.charmCharges = 0; // Lucky Charm unlock resets with the rest of the blood-coin economy, so any stored charges go with it
   state.prestigeLevel = nextLevel;
   // Prestige Shop currency — awarded on every prestige, not reset by it (see
   // PRESTIGE_POINTS_PER_PRESTIGE); unlockedBanners/equippedBanner are
@@ -1679,6 +1711,7 @@ function renderMinigameUnlocks(){
   if(!unlocked){
     document.getElementById('unlockRecallBtn').disabled = !canAffordRecallUnlock();
   }
+  renderCharmUnlockUI();
 }
 
 function unlockRecall(){
@@ -1694,6 +1727,176 @@ function unlockRecall(){
 }
 
 document.getElementById('unlockRecallBtn').addEventListener('click', unlockRecall);
+
+/* ---------- LUCKY CHARM MINIGAME (unlocked with Elder/Mythic blood coins) ----------
+   Per Han-Ji06's suggestion: "a slightly challenging mini game for a luck
+   boost to help pull the elder and mythic ranked characters a little
+   easier." A timed, limited-mistakes twist on Memory Match's pair-matching
+   (reusing its grid/cell markup) — clear the board before the clock or your
+   3rd strike to charge up temporary boosted Elder/Mythic pull odds (see
+   CHARM_LUCK_MULTIPLIER, consumed in pullOne). Unlike Memory Match and
+   Creature Recall, this one intentionally has no separate blood-coin
+   upgrade tier — the reward IS the luck boost, not scaling coin payouts. */
+const CHARM_PAIRS = 6;
+const CHARM_TIME_LIMIT_SEC = 40;
+const CHARM_MAX_STRIKES = 3;
+const CHARM_UNLOCK_COST = { elder:2, mythic:1 }; // tied to the two rarities the reward boosts
+const CHARM_LUCK_MULTIPLIER = 3;   // Elder/Mythic weight multiplier while a charge is active
+const CHARM_CHARGES_ON_WIN = 5;    // charges granted for a full clear
+const CHARM_FLAWLESS_BONUS = 2;    // extra charges for clearing with 0 strikes used
+const CHARM_MAX_STORED_CHARGES = 15; // caps charge-hoarding from repeated wins
+const CHARM_WIN_COINS = 120;
+const CHARM_FAIL_COINS_PER_PAIR = 10; // consolation payout for pairs matched before failing
+
+let charm = null; // { cards, flipped, matched, strikes, timeLeft, locked, timerId }
+
+const charmModal = document.getElementById('charmModal');
+const charmGrid = document.getElementById('charmGrid');
+const charmResult = document.getElementById('charmResult');
+
+function startCharmGame(){
+  const chosen = shuffle(CREATURES).slice(0, CHARM_PAIRS);
+  const cards = shuffle(chosen.concat(chosen)).map(c => ({ creatureId:c.id, emoji:c.emoji }));
+  charm = {
+    cards,
+    flipped: [],
+    matched: new Set(),
+    strikes: 0,
+    timeLeft: CHARM_TIME_LIMIT_SEC,
+    locked: false,
+  };
+  charmResult.classList.add('hidden');
+  charmResult.innerHTML = '';
+  charmModal.classList.remove('hidden');
+  renderCharmGrid();
+  updateCharmStats();
+  if(charm.timerId) clearInterval(charm.timerId);
+  charm.timerId = setInterval(()=>{
+    if(!charm) return;
+    charm.timeLeft--;
+    updateCharmStats();
+    if(charm.timeLeft <= 0) finishCharmGame(false);
+  }, 1000);
+}
+
+function renderCharmGrid(){
+  charmGrid.innerHTML = charm.cards.map((card, i)=>{
+    const isFlipped = charm.flipped.includes(i);
+    const isMatched = charm.matched.has(i);
+    const showFace = isFlipped || isMatched;
+    return `<div class="memory-cell ${isFlipped?'flipped':''} ${isMatched?'matched':''}" data-index="${i}">${showFace ? card.emoji : '🍀'}</div>`;
+  }).join('');
+  charmGrid.querySelectorAll('.memory-cell').forEach(cell=>{
+    cell.addEventListener('click', ()=> onCharmCellClick(parseInt(cell.dataset.index, 10)));
+  });
+}
+
+function updateCharmStats(){
+  if(!charm) return;
+  document.getElementById('charmTime').textContent = `${Math.max(0, charm.timeLeft)}s`;
+  document.getElementById('charmStrikes').textContent = `${charm.strikes}/${CHARM_MAX_STRIKES}`;
+  document.getElementById('charmMatches').textContent = `${charm.matched.size / 2}/${CHARM_PAIRS}`;
+}
+
+function onCharmCellClick(i){
+  if(!charm || charm.locked) return;
+  if(charm.matched.has(i) || charm.flipped.includes(i)) return;
+  if(charm.flipped.length >= 2) return;
+
+  charm.flipped.push(i);
+  renderCharmGrid();
+
+  if(charm.flipped.length === 2){
+    const [a, b] = charm.flipped;
+    if(charm.cards[a].creatureId === charm.cards[b].creatureId){
+      charm.matched.add(a);
+      charm.matched.add(b);
+      charm.flipped = [];
+      updateCharmStats();
+      renderCharmGrid();
+      if(charm.matched.size === charm.cards.length) finishCharmGame(true);
+    }else{
+      charm.strikes++;
+      updateCharmStats();
+      if(charm.strikes >= CHARM_MAX_STRIKES){
+        finishCharmGame(false);
+        return;
+      }
+      charm.locked = true;
+      setTimeout(()=>{
+        if(!charm) return;
+        charm.flipped = [];
+        charm.locked = false;
+        renderCharmGrid();
+      }, 700);
+    }
+  }
+}
+
+function finishCharmGame(won){
+  clearInterval(charm.timerId);
+  charm.locked = true;
+  const pairsMatched = charm.matched.size / 2;
+  let charges, coins;
+  if(won){
+    charges = CHARM_CHARGES_ON_WIN + (charm.strikes === 0 ? CHARM_FLAWLESS_BONUS : 0);
+    coins = CHARM_WIN_COINS;
+    if(charm.strikes === 0) state.hasCharmFlawless = true;
+  }else{
+    charges = Math.floor(pairsMatched / 2);
+    coins = pairsMatched * CHARM_FAIL_COINS_PER_PAIR;
+  }
+  state.charmCharges = Math.min(CHARM_MAX_STORED_CHARGES, (state.charmCharges||0) + charges);
+  if(coins > 0) addCoins(coins);
+  persist();
+  checkAchievements();
+  updatePullUI();
+  updateCharmStats();
+  charmResult.classList.remove('hidden');
+  charmResult.innerHTML = `
+    ${won
+      ? `Cleared the board${charm.strikes===0 ? ' flawlessly' : ''} with ${CHARM_TIME_LIMIT_SEC - Math.max(0,charm.timeLeft)}s used!`
+      : `Out of ${charm.timeLeft <= 0 ? 'time' : 'strikes'} — matched ${pairsMatched}/${CHARM_PAIRS} pairs.`}
+    <div class="reward">${charges>0 ? `+${charges} 🍀 Lucky Charm${charges===1?'':'s'}` : 'No charm this time'}${coins>0 ? ` · +${coins} 🪙` : ''}</div>
+    <button class="btn-accent" id="charmPlayAgainBtn">Play again</button>
+  `;
+  document.getElementById('charmPlayAgainBtn').addEventListener('click', startCharmGame);
+}
+
+document.getElementById('playCharmBtn').addEventListener('click', startCharmGame);
+document.getElementById('charmCloseBtn').addEventListener('click', ()=>{
+  if(charm && charm.timerId) clearInterval(charm.timerId);
+  charmModal.classList.add('hidden');
+});
+
+function canAffordCharmUnlock(){
+  return Object.entries(CHARM_UNLOCK_COST).every(([r,a]) => (state.bloodCoins[r]||0) >= a);
+}
+
+function renderCharmUnlockUI(){
+  const unlocked = state.unlockedMinigames.includes('charm');
+  const playBtn = document.getElementById('playCharmBtn');
+  const lockCard = document.getElementById('charmLockCard');
+  if(!playBtn || !lockCard) return;
+  playBtn.classList.toggle('hidden', !unlocked);
+  lockCard.classList.toggle('hidden', unlocked);
+  if(!unlocked){
+    document.getElementById('unlockCharmBtn').disabled = !canAffordCharmUnlock();
+  }
+}
+
+function unlockCharm(){
+  if(state.unlockedMinigames.includes('charm')) return;
+  if(!canAffordCharmUnlock()) return toast("Not enough blood coins to unlock Lucky Charm yet.");
+  Object.entries(CHARM_UNLOCK_COST).forEach(([r,a]) => { state.bloodCoins[r] -= a; });
+  state.unlockedMinigames.push('charm');
+  persist();
+  renderBloodCoins();
+  renderMinigameUnlocks();
+  toast("Unlocked Lucky Charm! 🍀");
+}
+
+document.getElementById('unlockCharmBtn').addEventListener('click', unlockCharm);
 
 /* ---------- PULLING ---------- */
 const PULL_COST = { all: { single:50, ten:450 }, themed: { single:90, ten:800 } };
@@ -1719,23 +1922,37 @@ function pullCostMultiplier(){
 function pullCostSingle(){ return Math.round((selectedSetId ? PULL_COST.themed.single : PULL_COST.all.single) * pullCostMultiplier()); }
 function pullCostTen(){ return Math.round((selectedSetId ? PULL_COST.themed.ten : PULL_COST.all.ten) * pullCostMultiplier()); }
 
-function weightedRollFromPool(pool){
+// `boosted` (from a Lucky Charm charge — see CHARM_LUCK_MULTIPLIER) multiplies
+// just the Elder/Mythic weights for this one roll, making them "a little
+// easier" to pull per Han-Ji06's suggestion, without touching Common through
+// Legendary or the separate Pity system below.
+function weightedRollFromPool(pool, boosted){
   const availableRarities = Array.from(new Set(pool.map(c => c.rarity)));
-  const total = availableRarities.reduce((s, r) => s + RARITIES[r].weight, 0);
+  const weightFor = r => (boosted && (r === 'elder' || r === 'mythic'))
+    ? RARITIES[r].weight * CHARM_LUCK_MULTIPLIER
+    : RARITIES[r].weight;
+  const total = availableRarities.reduce((s, r) => s + weightFor(r), 0);
   let roll = Math.random() * total;
   for(const r of availableRarities){
-    roll -= RARITIES[r].weight;
+    roll -= weightFor(r);
     if(roll <= 0) return r;
   }
   return availableRarities[availableRarities.length - 1];
 }
 
 function pullOne(pool){
+  // Lucky Charm: spend one stored charge (if any) to boost just this pull's
+  // Elder/Mythic odds. Charges are earned by winning the Lucky Charm
+  // minigame (see startCharmGame) and consumed one-per-pull, so a x10 pull
+  // with fewer than 10 stored charges gets a boosted start and a normal tail.
+  const usedCharm = (state.charmCharges||0) > 0;
+  if(usedCharm) state.charmCharges--;
+
   // Pity: if we've gone PITY_THRESHOLD pulls without a Legendary and this
   // pool actually has one, force it instead of rolling normally.
   const poolHasLegendary = pool.some(c => c.rarity === 'legendary');
   const pity = poolHasLegendary && (state.pullsSinceLegendary + 1) >= PITY_THRESHOLD;
-  const rarity = pity ? 'legendary' : weightedRollFromPool(pool);
+  const rarity = pity ? 'legendary' : weightedRollFromPool(pool, usedCharm);
   state.pullsSinceLegendary = rarity === 'legendary' ? 0 : state.pullsSinceLegendary + 1;
 
   const rarityPool = pool.filter(c => c.rarity === rarity);
@@ -1752,7 +1969,7 @@ function pullOne(pool){
 
   // Duplicates are no longer auto-converted to coins — they join the collection as
   // an extra copy the player can sell manually anytime (see sellOneDuplicate below).
-  return { creature, wasOwned, pity, shiny };
+  return { creature, wasOwned, pity, shiny, usedCharm };
 }
 
 /* ---------- SET PICKER + PULL UI ---------- */
@@ -1807,6 +2024,13 @@ function updatePullUI(){
     pityEl.textContent = remaining <= 10
       ? `🌟 Pity: guaranteed Legendary within ${remaining} more pull${remaining===1?'':'s'}!`
       : `Pity: ${state.pullsSinceLegendary||0}/${PITY_THRESHOLD} pulls since your last Legendary.`;
+  }
+
+  const charmEl = document.getElementById('charmLine');
+  if(charmEl){
+    const charges = state.charmCharges||0;
+    charmEl.classList.toggle('hidden', charges <= 0);
+    if(charges > 0) charmEl.textContent = `🍀 Lucky Charm active: next ${charges} pull${charges===1?'':'s'} get${charges===1?'s':''} x${CHARM_LUCK_MULTIPLIER} Elder/Mythic odds!`;
   }
 }
 
@@ -3253,6 +3477,8 @@ const ACHIEVEMENTS = [
     check: () => !!state.hasPerfectMemoryMatch },
   { id:'recall_flawless',  icon:'🎯', name:'Flawless Recall',  desc:'Clear all 10 rounds of Creature Recall.',
     check: () => !!state.hasRecallFlawless },
+  { id:'charm_flawless',   icon:'🍀', name:'Charmed Life',     desc:'Clear Lucky Charm without a single strike.',
+    check: () => !!state.hasCharmFlawless },
   // Originally "Streak Keeper" (reach a 7-day login streak). Changed
   // 2026-07-23 per a suggestion-board request to a much harder endgame
   // challenge instead — owning a shiny copy of every single creature at
