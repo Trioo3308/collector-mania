@@ -995,6 +995,14 @@
 
         <div class="settings-row">
           <div>
+            <b>🎵 Music volume</b>
+            <div class="desc">Adjusts just the background music loop's volume. Pull chimes, achievement fanfares, and every other sound effect are untouched and stay controlled by the Sound toggle above.</div>
+          </div>
+          <input type="range" id="musicVolumeInput" min="0" max="100" value="100" style="width:120px;" />
+        </div>
+
+        <div class="settings-row">
+          <div>
             <b>Reset game</b>
             <div class="desc">Wipes your local progress on this device only. Cannot be undone.</div>
           </div>
@@ -1440,9 +1448,15 @@ const TRADE_MAX_CARDS_PER_SIDE = 5; // keeps the picker UI and trade doc size sa
    PvP too would muddy both systems.
 
    A deck can include duplicate copies of the same creature up to however
-   many you actually own (consistent with how Trading treats "owned" cards),
-   since requiring 3 *distinct* Mythics for the effect slots alone would put
-   deck-building out of reach for most players this early.
+   many you actually own (consistent with how Trading treats "owned" cards).
+
+   Effect cards originally came from Mythic-rarity creatures, which meant
+   filling all 3 Effect slots required owning 3 Mythics — out of reach for
+   most players this early. Per B|_O0Df!3#d's 2026-07-24 board suggestion
+   ("make the effect cards into the commons so pvp is more accessible"),
+   Effect now comes from Common-rarity creatures instead, and Mythic moved
+   into the Attack pool alongside Rare/Epic/Legendary (see pvpCardRole and
+   PVP_ATTACK_BASE_STATS.mythic below).
    ========================================================= */
 const PVP_SENTINEL_SLOTS = 1;
 const PVP_EFFECT_SLOTS = 3;
@@ -1452,19 +1466,30 @@ const PVP_SENTINEL_SUMMON_TURNS = 3;
 const PVP_SHINY_STAT_BONUS = 0.10; // "Shiny cards... have minor buffs"
 
 const PVP_ATTACK_BASE_STATS = {
-  common:    { hp:80,  atk:18, spd:10 },
   rare:      { hp:110, atk:26, spd:13 },
   epic:      { hp:150, atk:36, spd:16 },
   legendary: { hp:200, atk:50, spd:20 },
+  // Mythic joined the Attack pool 2026-07-24 (see pvpCardRole below) when
+  // Effect moved to Common — continues the same progression one step further.
+  mythic:    { hp:260, atk:65, spd:24 },
 };
 const PVP_SENTINEL_BASE_STATS = { hp:340, atk:70, spd:12 }; // bulky, hard-hitting, slow — "turn the tide"
 const PVP_EFFECT_TYPES = ['weaken_spd', 'weaken_atk', 'heal'];
 
+// Board suggestion (B|_O0Df!3#d, 2026-07-24): "Cam we make the effect cards
+// into the commons so pvp is more accessible" — Effect cards originally came
+// from Mythic-rarity creatures, which meant filling all 3 Effect slots
+// required owning 3 Mythics, putting a complete PvP deck out of reach for
+// most players this early (Mythic is a genuinely rare pull with no pity
+// floor). Moving Effect to Common — the easiest rarity to own multiples of —
+// directly fixes that accessibility problem. Mythic creatures move into the
+// Attack pool alongside Rare/Epic/Legendary instead (see
+// PVP_ATTACK_BASE_STATS.mythic above) rather than being left without a role.
 function pvpCardRole(creature){
   if(creature.rarity === 'elder') return 'sentinel';
-  if(creature.rarity === 'mythic') return 'effect';
+  if(creature.rarity === 'common') return 'effect';
   if(creature.rarity === 'divine') return null;
-  return 'attack';
+  return 'attack'; // rare, epic, legendary, mythic
 }
 
 // Small deterministic hash of a creature id, used to give same-rarity cards
@@ -1489,7 +1514,7 @@ function pvpBaseCardStats(creature){
     const effectType = PVP_EFFECT_TYPES[pvpHash(creature.id) % PVP_EFFECT_TYPES.length];
     return { role, hp: 60, atk: 0, spd: 15, effectType };
   }
-  const base = PVP_ATTACK_BASE_STATS[creature.rarity] || PVP_ATTACK_BASE_STATS.common;
+  const base = PVP_ATTACK_BASE_STATS[creature.rarity] || PVP_ATTACK_BASE_STATS.rare;
   const variance = (pvpHash(creature.id) % 11) - 5; // +/-5 flat variance so same-rarity cards differ a little
   return { role, hp: base.hp + variance, atk: base.atk + Math.round(variance/3), spd: base.spd };
 }
@@ -1621,6 +1646,7 @@ function defaultSave(){
     recallUpgradeLevel: 0,       // Creature Recall reward upgrade tier, mirrors memoryUpgradeLevel
     showcaseCreatureId: null,    // owned creature id pinned to display on the public Leaderboard
     soundEnabled: true,          // synthesized sound effects on/off, toggled in Settings
+    musicVolume: 1,              // 0-1 multiplier on AMBIENT_VOLUME, independent of soundEnabled/sfx — see musicVolumeMultiplier()
     prestigePoints: 0,           // Prestige Shop currency — see BANNERS/PRESTIGE_POINTS_PER_PRESTIGE
     unlockedBanners: [],         // banner ids purchased from the Prestige Shop
     // Per board suggestion (Trioo3308, 2026-07-24): one slot per banner TYPE
@@ -1665,6 +1691,13 @@ function migrateSave(data){
   merged.recallUpgradeLevel = (data && Number.isInteger(data.recallUpgradeLevel)) ? data.recallUpgradeLevel : 0;
   merged.showcaseCreatureId = (data && typeof data.showcaseCreatureId === 'string') ? data.showcaseCreatureId : null;
   merged.soundEnabled = (data && typeof data.soundEnabled === 'boolean') ? data.soundEnabled : true;
+  // Music volume: separate from soundEnabled per Han-Ji06's 2026-07-24
+  // suggestion ("a music volume adjustment... just for the music not for the
+  // game chimes"). Clamped 0-1; anything missing/malformed defaults to 1
+  // (full volume, i.e. unchanged from before this slider existed).
+  merged.musicVolume = (data && typeof data.musicVolume === 'number' && isFinite(data.musicVolume))
+    ? Math.max(0, Math.min(1, data.musicVolume))
+    : 1;
   // Prestige Points: a new Prestige Shop currency (see BANNERS above),
   // earned automatically every time doPrestige() runs. Players who'd
   // already prestiged before this feature shipped get a one-time
@@ -2151,7 +2184,17 @@ const CHARM_PAIRS = 6;
 const CHARM_TIME_LIMIT_SEC = 40;
 const CHARM_MAX_STRIKES = 3;
 const CHARM_UNLOCK_COST = { elder:2, mythic:1 }; // tied to the two rarities the reward boosts
-const CHARM_LUCK_MULTIPLIER = 3;   // Elder/Mythic weight multiplier while a charge is active
+const CHARM_LUCK_MULTIPLIER = 3;   // Elder weight multiplier while a charge is active
+// Board suggestion (B|_O0Df!3#d, 2026-07-24): "Make lucky charms give a 10X
+// chance for divines and mythics." Mythic's boost jumps from the original 3x
+// to a much bigger 10x, and Divine (which didn't exist when Lucky Charm
+// originally shipped) is added to the boosted set at the same 10x rate.
+// Elder deliberately keeps its original, smaller CHARM_LUCK_MULTIPLIER (3x)
+// rather than being folded into this — the suggestion named "divines and
+// mythics" specifically, not Elder, so this reads as strengthening the
+// charm's effect on the two rarest tiers without touching what it already
+// did for Elder. A judgment call, not explicitly specified either way.
+const CHARM_LUCK_MULTIPLIER_TOP = 10; // Mythic/Divine weight multiplier while a charge is active
 const CHARM_CHARGES_ON_WIN = 5;    // charges granted for a full clear
 const CHARM_FLAWLESS_BONUS = 2;    // extra charges for clearing with 0 strikes used
 const CHARM_MAX_STORED_CHARGES = 15; // caps charge-hoarding from repeated wins
@@ -2441,15 +2484,20 @@ function pullCostMultiplier(){
 function pullCostSingle(){ return Math.round((selectedSetId ? PULL_COST.themed.single : PULL_COST.all.single) * pullCostMultiplier()); }
 function pullCostTen(){ return Math.round((selectedSetId ? PULL_COST.themed.ten : PULL_COST.all.ten) * pullCostMultiplier()); }
 
-// `boosted` (from a Lucky Charm charge — see CHARM_LUCK_MULTIPLIER) multiplies
-// just the Elder/Mythic weights for this one roll, making them "a little
-// easier" to pull per Han-Ji06's suggestion, without touching Common through
-// Legendary or the separate Pity system below.
+// `boosted` (from a Lucky Charm charge — see CHARM_LUCK_MULTIPLIER /
+// CHARM_LUCK_MULTIPLIER_TOP) multiplies just the Elder/Mythic/Divine weights
+// for this one roll, making them "a little easier" to pull per Han-Ji06's
+// original suggestion (Elder, at the original 3x) and B|_O0Df!3#d's 2026-07-24
+// follow-up (Mythic and Divine, boosted further to 10x) — without touching
+// Common through Legendary or the separate Pity system below.
 function weightedRollFromPool(pool, boosted){
   const availableRarities = Array.from(new Set(pool.map(c => c.rarity)));
-  const weightFor = r => (boosted && (r === 'elder' || r === 'mythic'))
-    ? RARITIES[r].weight * CHARM_LUCK_MULTIPLIER
-    : RARITIES[r].weight;
+  const weightFor = r => {
+    if(!boosted) return RARITIES[r].weight;
+    if(r === 'elder') return RARITIES[r].weight * CHARM_LUCK_MULTIPLIER;
+    if(r === 'mythic' || r === 'divine') return RARITIES[r].weight * CHARM_LUCK_MULTIPLIER_TOP;
+    return RARITIES[r].weight;
+  };
   const total = availableRarities.reduce((s, r) => s + weightFor(r), 0);
   let roll = Math.random() * total;
   for(const r of availableRarities){
@@ -2562,7 +2610,7 @@ function updatePullUI(){
   if(charmEl){
     const charges = state.charmCharges||0;
     charmEl.classList.toggle('hidden', charges <= 0);
-    if(charges > 0) charmEl.textContent = `🍀 Lucky Charm active: next ${charges} pull${charges===1?'':'s'} get${charges===1?'s':''} x${CHARM_LUCK_MULTIPLIER} Elder/Mythic odds!`;
+    if(charges > 0) charmEl.textContent = `🍀 Lucky Charm active: next ${charges} pull${charges===1?'':'s'} get${charges===1?'s':''} x${CHARM_LUCK_MULTIPLIER} Elder odds and x${CHARM_LUCK_MULTIPLIER_TOP} Mythic/Divine odds!`;
   }
 }
 
@@ -2643,13 +2691,24 @@ const AMBIENT_CHORDS = [
 let ambientGain = null, ambientFilter = null, ambientStarted = false;
 let ambientNextBarTime = 0, ambientBarIndex = 0, ambientSchedulerId = null;
 
+// Music-only volume slider (Han-Ji06, 2026-07-24 board suggestion) — a 0-1
+// multiplier on top of AMBIENT_VOLUME, independent of state.soundEnabled
+// (which still fully mutes/unmutes music alongside the sfx chimes). This is
+// what lets a player turn the music down without touching pull/achievement
+// sound effects at all.
+function musicVolumeMultiplier(){
+  return (typeof state.musicVolume === 'number' && isFinite(state.musicVolume))
+    ? Math.max(0, Math.min(1, state.musicVolume))
+    : 1;
+}
+
 function ensureAmbientGraph(ctx){
   if(ambientGain) return;
   ambientFilter = ctx.createBiquadFilter();
   ambientFilter.type = 'lowpass';
   ambientFilter.frequency.value = 1400;
   ambientGain = ctx.createGain();
-  ambientGain.gain.value = state.soundEnabled ? AMBIENT_VOLUME : 0;
+  ambientGain.gain.value = state.soundEnabled ? AMBIENT_VOLUME * musicVolumeMultiplier() : 0;
   ambientFilter.connect(ambientGain);
   ambientGain.connect(ctx.destination);
   // A slow, gentle sweep on the filter cutoff so the pad "breathes" instead
@@ -2743,12 +2802,17 @@ function ambientSchedulerTick(){
   }
 }
 
+// Re-applies both the sfx-shared soundEnabled mute AND the music-only volume
+// slider (musicVolumeMultiplier) to the ambient music's gain node. Called
+// whenever either control changes — the Sound toggle still fully silences
+// music (multiplying by 0 regardless of the slider), while the slider alone
+// only ever scales the music, never the chimes.
 function syncBgMusicToSoundSetting(){
   if(!ambientGain) return;
   const ctx = getAudioCtx();
   const now = ctx ? ctx.currentTime : 0;
   ambientGain.gain.cancelScheduledValues(now);
-  ambientGain.gain.linearRampToValueAtTime(state.soundEnabled ? AMBIENT_VOLUME : 0, now + 0.4);
+  ambientGain.gain.linearRampToValueAtTime(state.soundEnabled ? AMBIENT_VOLUME * musicVolumeMultiplier() : 0, now + 0.4);
 }
 
 // Browsers block audio with sound until a real user gesture happens, so
@@ -3001,6 +3065,36 @@ function toggleShowcase(id){
   toast(state.showcaseCreatureId ? 'Pinned to your Leaderboard row!' : 'Unpinned from your Leaderboard row.');
 }
 
+// Board suggestion (B|_O0Df!3#d, 2026-07-24): "Make another section in
+// collection where you can see the divines you own." Divine creatures
+// deliberately have no SETS entry (see the Divine Trial section) so they
+// never showed up anywhere in the Collection grid at all — this adds a
+// standalone section for them, rendered the same way as a themed set but
+// sourced directly from CREATURES rather than SETS, and placed after every
+// themed set since Divine sits outside the normal set-progression system.
+function divineSectionHtml(){
+  const members = CREATURES.filter(c => c.rarity === 'divine');
+  if(!members.length) return '';
+  const ownedInDivine = members.filter(c => (state.owned[c.id]||0) > 0).length;
+  return `
+    <div class="set-section divine-section">
+      <div class="set-header">
+        <div class="set-header-left">
+          <span class="set-icon">👑</span>
+          <div>
+            <div class="set-name">Divine</div>
+            <div class="set-blurb">The rarest tier in the game — earned only by surviving the Divine Trial, not owned via any themed set.</div>
+          </div>
+        </div>
+        <div class="set-progress">${ownedInDivine}/${members.length}</div>
+      </div>
+      <div class="collection-grid">
+        ${members.map(creatureCardHtml).join('')}
+      </div>
+    </div>
+  `;
+}
+
 function renderCollection(){
   const grid = document.getElementById('collectionGrid');
   grid.innerHTML = SETS.map(set=>{
@@ -3024,7 +3118,7 @@ function renderCollection(){
         </div>
       </div>
     `;
-  }).join('');
+  }).join('') + divineSectionHtml();
 
   const ownedCount = CREATURES.filter(c => (state.owned[c.id]||0) > 0).length;
   document.getElementById('statOwned').textContent = `${ownedCount}/${CREATURES.length}`;
@@ -3467,6 +3561,17 @@ soundToggleInput.addEventListener('change', ()=>{
   persist();
   syncBgMusicToSoundSetting();
   if(state.soundEnabled) playChime([[659, 0, 0.12], [880, 0.08, 0.14]], { type:'triangle', volume:0.14 });
+});
+
+// Music-only volume slider — see musicVolumeMultiplier(). `input` (not just
+// `change`) so the level updates live as the player drags, not only after
+// release.
+const musicVolumeInput = document.getElementById('musicVolumeInput');
+musicVolumeInput.value = Math.round(musicVolumeMultiplier() * 100);
+musicVolumeInput.addEventListener('input', ()=>{
+  state.musicVolume = Math.max(0, Math.min(100, parseInt(musicVolumeInput.value, 10) || 0)) / 100;
+  persist();
+  syncBgMusicToSoundSetting();
 });
 
 /* ---------- SETTINGS: export / import save ---------- */
@@ -3972,25 +4077,41 @@ function updateTradeRequestPointsGate(){
   if(label) label.textContent = `✦ Prestige Points${eligible ? '' : ` (${target ? escapeHtml(target.name) : 'this player'} isn't Prestige 5+)`}`;
 }
 
-function renderTradeView(){
-  const lockedNotice = document.getElementById('tradeLockedNotice');
-  const body = document.getElementById('tradeBody');
-  const unlocked = hasTradingUnlocked();
-  lockedNotice.classList.toggle('hidden', unlocked);
-  body.classList.toggle('hidden', !unlocked);
-  setConnBadge(firebaseReady);
-  if(!unlocked) return;
-
-  const myId = getDeviceId();
-  const targets = otherPlayers();
+// Bug fix (Trioo3308, 2026-07-24 board suggestion): "if you don't fill in
+// the trade selections or the deck fast enough it resets, can you fix that?"
+// Same root cause and same fix pattern as renderPvpDeckBuilder above — this
+// form was being fully rebuilt (wiping unsaved offer/request input) every
+// time renderTradeView() ran from a live `players`/`trades` onSnapshot, which
+// fires constantly as every connected device pushes its own stats. Only
+// rebuild when the set of tradeable targets, Prestige-Points eligibility, or
+// the player's own owned-card list actually changed — a signature stored on
+// the element itself skips the rebuild otherwise, leaving in-progress input
+// alone. `createTradeOffer()` now explicitly clears the form on success
+// instead, since that side effect used to happen implicitly via the
+// unconditional rebuild this fix removes.
+function renderTradeForm(){
   const form = document.getElementById('tradeForm');
   if(!firebaseReady){
+    const signature = 'offline';
+    if(form.dataset.builtSignature === signature) return;
+    form.dataset.builtSignature = signature;
     form.innerHTML = `<div style="font-size:12px;color:var(--text-dim);">Connect live sync (⚙️ Settings) to trade with other players.</div>`;
-  } else if(!targets.length){
+    return;
+  }
+  const targets = otherPlayers();
+  if(!targets.length){
+    const signature = 'no-targets';
+    if(form.dataset.builtSignature === signature) return;
+    form.dataset.builtSignature = signature;
     form.innerHTML = `<div style="font-size:12px;color:var(--text-dim);">No other named players are online yet.</div>`;
-  } else {
-    const pointsEligible = (state.prestigeLevel||0) >= PRESTIGE_TRADE_POINTS_LEVEL;
-    form.innerHTML = `
+    return;
+  }
+  const pointsEligible = (state.prestigeLevel||0) >= PRESTIGE_TRADE_POINTS_LEVEL;
+  const ownedIds = CREATURES.filter(c => (state.owned[c.id]||0) > 0).map(c => `${c.id}:${state.owned[c.id]}`).sort().join(',');
+  const signature = JSON.stringify({ ids: targets.map(p=>p.id).sort(), pointsEligible, ownedIds });
+  if(form.dataset.builtSignature === signature) return;
+  form.dataset.builtSignature = signature;
+  form.innerHTML = `
       <div>
         <label>Trade with</label>
         <select id="tradeTargetSelect">${targets.map(p=>`<option value="${p.id}">${escapeHtml(p.name)} (Prestige ${p.prestigeLevel||0})</option>`).join('')}</select>
@@ -4031,12 +4152,18 @@ function renderTradeView(){
       </div>
       <button class="btn-accent" id="sendTradeBtn">Send trade offer</button>
     `;
-    updateTradeRequestPointsGate();
-    document.getElementById('tradeTargetSelect').addEventListener('change', updateTradeRequestPointsGate);
-    document.getElementById('tradeOfferCards').addEventListener('change', (e)=> enforceCardPickerMax(e, 'tradeOfferCards'));
-    document.getElementById('sendTradeBtn').addEventListener('click', createTradeOffer);
-  }
+  updateTradeRequestPointsGate();
+  document.getElementById('tradeTargetSelect').addEventListener('change', updateTradeRequestPointsGate);
+  document.getElementById('tradeOfferCards').addEventListener('change', (e)=> enforceCardPickerMax(e, 'tradeOfferCards'));
+  document.getElementById('sendTradeBtn').addEventListener('click', createTradeOffer);
+}
 
+// The read-only incoming/outgoing trade lists, unlike the form above, are
+// meant to stay live — they should reflect every Firestore update
+// immediately (a trade being accepted/declined by the other side, etc.), so
+// this is intentionally NOT signature-guarded the way renderTradeForm is.
+function renderTradeLists(){
+  const myId = getDeviceId();
   const mine = lastTradesList.filter(t => t.fromId === myId || t.toId === myId);
   const incoming = mine.filter(t => t.toId === myId && t.status === 'pending');
   const outgoing = mine.filter(t => t.fromId === myId).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
@@ -4047,6 +4174,19 @@ function renderTradeView(){
     const picker = document.getElementById(`tradeAcceptCards-${t.id}`);
     if(picker) picker.addEventListener('change', (e)=> enforceCardPickerMax(e, `tradeAcceptCards-${t.id}`));
   });
+}
+
+function renderTradeView(){
+  const lockedNotice = document.getElementById('tradeLockedNotice');
+  const body = document.getElementById('tradeBody');
+  const unlocked = hasTradingUnlocked();
+  lockedNotice.classList.toggle('hidden', unlocked);
+  body.classList.toggle('hidden', !unlocked);
+  setConnBadge(firebaseReady);
+  if(!unlocked) return;
+
+  renderTradeForm();
+  renderTradeLists();
 }
 
 function createTradeOffer(){
@@ -4100,6 +4240,23 @@ function createTradeOffer(){
     updatedAt: Date.now(),
   }).then(()=>{
     toast(`Trade offer sent to ${target.name}!`);
+    // Previously the form cleared implicitly, via renderTradeView() fully
+    // rebuilding it in response to the trades onSnapshot firing right after
+    // this write. Now that rebuilds are signature-guarded (see
+    // renderTradeForm) so they stop wiping in-progress input elsewhere, clear
+    // the just-submitted form explicitly instead.
+    document.querySelectorAll('#tradeOfferCards input[type=checkbox]').forEach(cb => { cb.checked = false; });
+    document.querySelectorAll('#tradeOfferCards .trade-card-chip').forEach(chip => chip.classList.remove('checked'));
+    ['tradeOfferCoins','tradeOfferBloodAmount','tradeOfferCharm','tradeOfferPoints','tradeRequestCoins','tradeRequestBloodAmount','tradeRequestCharm','tradeRequestPoints'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.value = 0;
+    });
+    const noteEl = document.getElementById('tradeRequestNote');
+    if(noteEl) noteEl.value = '';
+    const offerBloodTypeEl = document.getElementById('tradeOfferBloodType');
+    if(offerBloodTypeEl) offerBloodTypeEl.value = '';
+    const requestBloodTypeEl = document.getElementById('tradeRequestBloodType');
+    if(requestBloodTypeEl) requestBloodTypeEl.value = '';
   }).catch(err=>{
     console.error(err);
     toast('Could not send that trade — check your connection.');
@@ -4307,16 +4464,38 @@ function pvpBuildDeckSnapshot(deck){
   };
 }
 
+// Bug fix (Trioo3308, 2026-07-24 board suggestion): "if you don't fill in
+// the trade selections or the deck fast enough it resets, can you fix that?"
+// Root cause — renderPvpView() (and, before that fix, renderTradeView() too;
+// see renderTradeForm below) was called unconditionally from several live
+// Firestore listeners (the `players` onSnapshot, which fires roughly every
+// ~20s as EVERY connected device pushes its own stats — see
+// pushPlayerStats — plus the `duels` onSnapshot) any time the PvP tab was
+// open. Each call fully rebuilt this function's <select> elements from the
+// last-SAVED state.pvpDeck, silently discarding whatever the player had
+// picked in the dropdowns but not yet clicked "Save deck" for — often before
+// they'd had a real chance to finish. Fix: only actually rebuild the DOM when
+// something that should invalidate the current selections changed — the set
+// of eligible cards per role (driven by ownership) or the saved deck itself
+// (e.g. right after a successful Save). A signature comparison, stored on
+// the element itself, makes this reliable across repeated calls without a
+// separate module-level variable.
 function renderPvpDeckBuilder(){
   const deck = state.pvpDeck;
   const wrap = document.getElementById('pvpDeckBuilder');
   if(!wrap) return;
+  const eligibleSignature = ['sentinel','effect','attack'].map(role =>
+    pvpEligibleCreatures(role).map(c => `${c.id}:${state.owned[c.id]||0}`).join(',')
+  ).join('|');
+  const signature = JSON.stringify({ deck, eligibleSignature });
+  if(wrap.dataset.builtSignature === signature) return;
+  wrap.dataset.builtSignature = signature;
   wrap.innerHTML = `
     <div>
       <label>Sentinel — Elder card (1)</label>
       <select id="pvpSentinelSelect">${pvpSelectOptionsHtml('sentinel', deck.sentinel)}</select>
     </div>
-    <div class="trade-col-title">Effect cards — Mythic (${PVP_EFFECT_SLOTS})</div>
+    <div class="trade-col-title">Effect cards — Common (${PVP_EFFECT_SLOTS})</div>
     ${[0,1,2].map(i => `<select id="pvpEffectSelect${i}">${pvpSelectOptionsHtml('effect', deck.effects[i])}</select>`).join('')}
     <div class="trade-col-title">Attack cards (${PVP_ATTACK_SLOTS})</div>
     ${[0,1,2,3,4,5].map(i => `<select id="pvpAttackSelect${i}">${pvpSelectOptionsHtml('attack', deck.attacks[i])}</select>`).join('')}
