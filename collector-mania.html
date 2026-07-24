@@ -3148,14 +3148,17 @@ function renderStatsPie(players, colorOf, total){
       </div>`).join('')}
     </div>
   `;
-  // Two nested rAFs guarantee the browser paints the 0-length dasharray
-  // first, so the transition to the real target actually plays instead of
-  // snapping straight to its end state.
-  requestAnimationFrame(()=> requestAnimationFrame(()=>{
-    wrap.querySelectorAll('.stats-pie-slice').forEach(circle=>{
-      circle.style.strokeDasharray = circle.dataset.target;
-    });
-  }));
+  // Force a synchronous layout flush (via getBBox) so the browser commits
+  // the 0-length starting dasharray from the markup above before we set the
+  // real target below — that's what makes the CSS transition actually play
+  // instead of snapping straight to its end state. Deliberately NOT using
+  // requestAnimationFrame here: rAF is suspended on background/hidden tabs
+  // (e.g. the modal opened but the browser tab isn't focused), which would
+  // leave the chart permanently empty. A forced reflow works regardless of
+  // tab visibility.
+  const pieSlices = wrap.querySelectorAll('.stats-pie-slice');
+  pieSlices.forEach(circle => void circle.getBBox());
+  pieSlices.forEach(circle => { circle.style.strokeDasharray = circle.dataset.target; });
 }
 
 function renderStatsBars(players, colorOf){
@@ -3172,9 +3175,11 @@ function renderStatsBars(players, colorOf){
       <div class="stat-bar-value">${value.toLocaleString()}</div>
     </div>`;
   }).join('');
-  requestAnimationFrame(()=> requestAnimationFrame(()=>{
-    wrap.querySelectorAll('.stat-bar-fill').forEach(el=>{ el.style.width = el.dataset.target; });
-  }));
+  // See the pie chart's renderStatsPie for why this uses a forced reflow
+  // instead of requestAnimationFrame (background-tab safety).
+  const fills = wrap.querySelectorAll('.stat-bar-fill');
+  fills.forEach(el => void el.offsetHeight);
+  fills.forEach(el => { el.style.width = el.dataset.target; });
 }
 
 function renderStatsDotPlot(players, colorOf){
@@ -3199,11 +3204,15 @@ function renderStatsDotPlot(players, colorOf){
       title="${escapeHtml(p.name||'Anonymous')}: Prestige ${lvl}">${escapeHtml(initials)}</div>`;
   }).join('');
   wrap.innerHTML = `<div class="stats-dot-axis"></div>${ticksHtml}${dotsHtml}`;
-  requestAnimationFrame(()=> requestAnimationFrame(()=>{
-    wrap.querySelectorAll('.stats-dot').forEach((el,i)=>{
-      setTimeout(()=> el.classList.add('shown'), i*70);
-    });
-  }));
+  // See renderStatsPie for why this forces a reflow rather than using
+  // requestAnimationFrame. setTimeout (for the staggered pop-in) still
+  // fires on background tabs, just possibly coalesced/delayed — it never
+  // gets fully suspended the way rAF can be.
+  const dots = wrap.querySelectorAll('.stats-dot');
+  dots.forEach(el => void el.offsetHeight);
+  dots.forEach((el,i)=>{
+    setTimeout(()=> el.classList.add('shown'), i*70);
+  });
 }
 
 document.getElementById('openStatsBtn').addEventListener('click', ()=>{
