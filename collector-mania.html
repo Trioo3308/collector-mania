@@ -4110,15 +4110,41 @@ function otherPlayers(){
   return lastPlayersList.filter(p => p.id !== myId && (p.name||'').trim());
 }
 
+// Card tokens in a trade doc are either a plain creature id (a normal copy)
+// or "<id>::shiny" (a specifically-shiny copy) — see parseTradeCardToken()
+// below. "::" is safe as a separator since creature ids are plain
+// lowercase-alnum strings that never contain it.
+function parseTradeCardToken(token){
+  const idx = token.indexOf('::shiny');
+  return idx === -1 ? { id: token, shiny: false } : { id: token.slice(0, idx), shiny: true };
+}
+
+// Board suggestion (『Go1d£n ₩aff€r』, 2026-07-24: "Be able to trade shiny
+// cards.") — every owned creature gets its normal checkbox as before, plus a
+// second "✨ Shiny" checkbox specifically if the player owns at least one
+// shiny copy of it. Picking the shiny checkbox trades a "<id>::shiny" token
+// instead of the plain id, so applyTradeDelta() below knows to move a shiny
+// copy (decrementing/incrementing both state.owned AND state.ownedShiny)
+// rather than an ordinary one.
 function ownedCardOptionsHtml(pickerId, maxSelect){
   const owned = CREATURES.filter(c => (state.owned[c.id]||0) > 0);
   if(!owned.length) return `<div style="font-size:12px;color:var(--text-dim);">You don't own any cards yet.</div>`;
-  return owned.map(c => `
+  return owned.map(c => {
+    const shinyCount = state.ownedShiny[c.id] || 0;
+    const shinyChip = shinyCount > 0 ? `
+    <label class="trade-card-chip">
+      <input type="checkbox" value="${c.id}::shiny" data-max="${maxSelect}" />
+      ✨ ${c.emoji} ${escapeHtml(c.name)} (Shiny) <span style="color:var(--text-dim);">x${shinyCount}</span>
+    </label>
+    ` : '';
+    return `
     <label class="trade-card-chip">
       <input type="checkbox" value="${c.id}" data-max="${maxSelect}" />
       ${c.emoji} ${escapeHtml(c.name)} <span style="color:var(--text-dim);">x${state.owned[c.id]}</span>
     </label>
-  `).join('');
+    ${shinyChip}
+  `;
+  }).join('');
 }
 
 function bloodTypeSelectHtml(id){
@@ -4290,7 +4316,10 @@ function createTradeOffer(){
   if(offerBloodType && offerBloodAmount > (state.bloodCoins[offerBloodType]||0)) return toast(`You don't have that many ${RARITIES[offerBloodType].label} blood coins.`);
   if(offerCharm > (state.charmCharges||0)) return toast("You don't have that many Lucky Charms to offer.");
   if(offerPoints > (state.prestigePoints||0)) return toast("You don't have that many Prestige Points to offer.");
-  if(offerCardIds.some(id => (state.owned[id]||0) <= 0)) return toast("You can only offer cards you own.");
+  if(offerCardIds.some(token => {
+    const {id, shiny} = parseTradeCardToken(token);
+    return (state.owned[id]||0) <= 0 || (shiny && (state.ownedShiny[id]||0) <= 0);
+  })) return toast("You can only offer cards (and shinies) you own.");
 
   const requestNote = document.getElementById('tradeRequestNote').value.trim().slice(0, 200);
   const requestCoins = Math.max(0, parseInt(document.getElementById('tradeRequestCoins').value, 10) || 0);
@@ -4346,9 +4375,13 @@ function createTradeOffer(){
 function renderIncomingTradeHtml(t){
   const bloodOfferStr = t.offerBloodType && t.offerBloodAmount ? `${t.offerBloodAmount} 🩸${(RARITIES[t.offerBloodType]||{}).label||t.offerBloodType}` : '';
   const bloodRequestStr = t.requestBloodType && t.requestBloodAmount ? `${t.requestBloodAmount} 🩸${(RARITIES[t.requestBloodType]||{}).label||t.requestBloodType}` : '';
-  const offerCards = (t.offerCardIds||[]).map(id => CREATURES.find(c=>c.id===id)).filter(Boolean);
+  const offerCards = (t.offerCardIds||[]).map(token => {
+    const {id, shiny} = parseTradeCardToken(token);
+    const c = CREATURES.find(x=>x.id===id);
+    return c ? { ...c, shiny } : null;
+  }).filter(Boolean);
   const offerParts = [
-    offerCards.length ? offerCards.map(c=>`${c.emoji}${c.name}`).join(', ') : '',
+    offerCards.length ? offerCards.map(c=>`${c.shiny?'✨':''}${c.emoji}${c.name}`).join(', ') : '',
     t.offerCoins ? `${t.offerCoins} 🪙` : '',
     bloodOfferStr,
     t.offerCharm ? `${t.offerCharm} 🍀` : '',
@@ -4390,7 +4423,7 @@ function renderOutgoingTradeHtml(t){
       <div class="trade-parties">To ${escapeHtml(t.toName||'Anonymous')}<span class="trade-status ${t.status}">${t.status}</span></div>
       <div class="trade-side">You give: ${(t.offerCardIds||[]).length} card(s), ${t.offerCoins||0} 🪙${t.offerBloodAmount?`, ${t.offerBloodAmount} 🩸${(RARITIES[t.offerBloodType]||{}).label||''}`:''}${t.offerCharm?`, ${t.offerCharm} 🍀`:''}${t.offerPoints?`, ${t.offerPoints} ✦`:''}</div>
       <div class="trade-side">You asked for: ${t.requestCoins||0} 🪙${t.requestBloodAmount?`, ${t.requestBloodAmount} 🩸${(RARITIES[t.requestBloodType]||{}).label||''}`:''}${t.requestCharm?`, ${t.requestCharm} 🍀`:''}${t.requestPoints?`, ${t.requestPoints} ✦`:''}${t.requestNote?` — "${escapeHtml(t.requestNote)}"`:''}</div>
-      ${(t.requestCardIds||[]).length ? `<div class="trade-side">They included: ${t.requestCardIds.map(id=>{const c=CREATURES.find(x=>x.id===id);return c?`${c.emoji}${c.name}`:id;}).join(', ')}</div>` : ''}
+      ${(t.requestCardIds||[]).length ? `<div class="trade-side">They included: ${t.requestCardIds.map(token=>{const {id,shiny}=parseTradeCardToken(token);const c=CREATURES.find(x=>x.id===id);return c?`${shiny?'✨':''}${c.emoji}${c.name}`:id;}).join(', ')}</div>` : ''}
       <div class="trade-actions">
         ${canCancel ? `<button class="btn-ghost" data-cancel-trade="${t.id}">Cancel</button>` : ''}
         ${canDismiss ? `<button class="btn-ghost" data-cancel-trade="${t.id}">Dismiss</button>` : ''}
@@ -4409,7 +4442,10 @@ function acceptTrade(tradeId){
   if(!canAfford) return toast("You don't have everything they're asking for.");
 
   const requestCardIds = readCheckedCardIds(`tradeAcceptCards-${tradeId}`);
-  if(requestCardIds.some(id => (state.owned[id]||0) <= 0)) return toast("You can only include cards you own.");
+  if(requestCardIds.some(token => {
+    const {id, shiny} = parseTradeCardToken(token);
+    return (state.owned[id]||0) <= 0 || (shiny && (state.ownedShiny[id]||0) <= 0);
+  })) return toast("You can only include cards (and shinies) you own.");
 
   // Apply MY side right now: give up what they asked for, receive their offer.
   applyTradeDelta(
@@ -4471,14 +4507,29 @@ function applyTradeDelta(give, take){
     if(give.bloodCoins) Object.entries(give.bloodCoins).forEach(([r,a])=>{ if(a) state.bloodCoins[r] = Math.max(0, (state.bloodCoins[r]||0) - a); });
     if(give.charmCharges) state.charmCharges = Math.max(0, (state.charmCharges||0) - give.charmCharges);
     if(give.prestigePoints) state.prestigePoints = Math.max(0, (state.prestigePoints||0) - give.prestigePoints);
-    if(Array.isArray(give.cardIds)) give.cardIds.forEach(id => { state.owned[id] = Math.max(0, (state.owned[id]||0) - 1); clampShiny(id); });
+    // A "<id>::shiny" token (see parseTradeCardToken/ownedCardOptionsHtml
+    // above) moves a specifically-shiny copy: the underlying owned count
+    // drops by 1 same as any card, but ownedShiny also drops by 1 rather
+    // than being left to clampShiny() to sort out — giving away your one
+    // shiny copy shouldn't silently "downgrade" a different, non-shiny copy
+    // into the shiny slot instead.
+    if(Array.isArray(give.cardIds)) give.cardIds.forEach(token => {
+      const {id, shiny} = parseTradeCardToken(token);
+      state.owned[id] = Math.max(0, (state.owned[id]||0) - 1);
+      if(shiny) state.ownedShiny[id] = Math.max(0, (state.ownedShiny[id]||0) - 1);
+      clampShiny(id);
+    });
   }
   if(take){
     if(take.coins){ state.coins += take.coins; state.lifetimeCoins = (state.lifetimeCoins||0) + take.coins; }
     if(take.bloodCoins) Object.entries(take.bloodCoins).forEach(([r,a])=>{ if(a) state.bloodCoins[r] = (state.bloodCoins[r]||0) + a; });
     if(take.charmCharges) state.charmCharges = Math.min(CHARM_MAX_STORED_CHARGES, (state.charmCharges||0) + take.charmCharges);
     if(take.prestigePoints) state.prestigePoints = (state.prestigePoints||0) + take.prestigePoints;
-    if(Array.isArray(take.cardIds)) take.cardIds.forEach(id => { state.owned[id] = (state.owned[id]||0) + 1; });
+    if(Array.isArray(take.cardIds)) take.cardIds.forEach(token => {
+      const {id, shiny} = parseTradeCardToken(token);
+      state.owned[id] = (state.owned[id]||0) + 1;
+      if(shiny) state.ownedShiny[id] = (state.ownedShiny[id]||0) + 1;
+    });
   }
   persist();
 }
