@@ -1486,10 +1486,17 @@ const PVP_EFFECT_TYPES = ['weaken_spd', 'weaken_atk', 'heal'];
 // directly fixes that accessibility problem. Mythic creatures move into the
 // Attack pool alongside Rare/Epic/Legendary instead (see
 // PVP_ATTACK_BASE_STATS.mythic above) rather than being left without a role.
+// Board suggestion (B|_O0Df!3#d, 2026-07-24): "Make divine cards sentinels
+// in the pvp mode" — Divine previously had no PvP role at all (excluded
+// entirely, see the file-level comment above). Divine now joins Elder as a
+// second, even rarer option for the single Sentinel slot, rather than
+// replacing Elder — a player can build their Sentinel from either tier,
+// whichever they actually own. pvpBaseCardStats() needs no change for this:
+// it already computes Sentinel stats generically off PVP_SENTINEL_BASE_STATS
+// for any creature this function returns 'sentinel' for.
 function pvpCardRole(creature){
-  if(creature.rarity === 'elder') return 'sentinel';
+  if(creature.rarity === 'elder' || creature.rarity === 'divine') return 'sentinel';
   if(creature.rarity === 'common') return 'effect';
-  if(creature.rarity === 'divine') return null;
   return 'attack'; // rare, epic, legendary, mythic
 }
 
@@ -4623,7 +4630,7 @@ function renderPvpDeckBuilder(){
   wrap.dataset.builtSignature = signature;
   wrap.innerHTML = `
     <div>
-      <label>Sentinel — Elder card (1)</label>
+      <label>Sentinel — Elder or Divine card (1)</label>
       <select id="pvpSentinelSelect">${pvpSelectOptionsHtml('sentinel', deck.sentinel)}</select>
     </div>
     <div class="trade-col-title">Effect cards — Common (${PVP_EFFECT_SLOTS})</div>
