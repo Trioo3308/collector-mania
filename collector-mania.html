@@ -392,6 +392,44 @@
   @keyframes voidPulse{0%,100%{box-shadow:0 0 8px rgba(143,107,255,.35);}50%{box-shadow:0 0 16px rgba(143,107,255,.75);}}
   .leaderboard-badge{font-size:16px;flex-shrink:0;}
 
+  /* LIFETIME STATS MODAL — fun animated charts (pie/bar/dot) built from the
+     same public `players` collection the Leaderboard uses. Pure SVG/CSS,
+     no charting library. */
+  .stats-card{max-width:560px;max-height:85vh;overflow-y:auto;}
+  .stats-summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
+  .stats-summary .stat-chip{flex:1;min-width:110px;text-align:center;}
+  .stats-empty{font-size:13px;color:var(--text-dim);text-align:center;padding:30px 10px;}
+  .stats-section{margin-bottom:26px;text-align:left;}
+  .stats-section:last-child{margin-bottom:4px;}
+  .stats-section-title{font-size:14px;font-weight:700;margin-bottom:2px;}
+  .stats-section-sub{font-size:11px;color:var(--text-dim);margin-bottom:12px;}
+  .stats-pie-wrap{display:flex;gap:18px;align-items:center;flex-wrap:wrap;justify-content:center;}
+  .stats-pie-svg{width:150px;height:150px;flex-shrink:0;}
+  .stats-pie-slice{transition:stroke-dasharray .9s cubic-bezier(.2,.8,.3,1);}
+  .stats-pie-center-label{font-size:9px;fill:var(--text-dim);text-anchor:middle;}
+  .stats-pie-center-value{font-size:15px;font-weight:800;fill:var(--text);text-anchor:middle;}
+  .stats-legend{display:flex;flex-direction:column;gap:6px;flex:1;min-width:150px;}
+  .stats-legend-row{display:flex;align-items:center;gap:8px;font-size:12px;}
+  .stats-legend-swatch{width:11px;height:11px;border-radius:3px;flex-shrink:0;}
+  .stats-legend-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .stats-legend-value{color:var(--text-dim);font-variant-numeric:tabular-nums;}
+  .stat-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:12px;}
+  .stat-bar-label{width:82px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .stat-bar-track{flex:1;height:14px;background:var(--bg-2);border-radius:999px;overflow:hidden;border:1px solid var(--line);}
+  .stat-bar-fill{height:100%;width:0%;border-radius:999px;transition:width 1s cubic-bezier(.2,.8,.3,1);}
+  .stat-bar-value{width:56px;flex-shrink:0;text-align:right;color:var(--text-dim);font-variant-numeric:tabular-nums;}
+  .stats-dotplot{position:relative;height:70px;margin:10px 4px 26px;}
+  .stats-dot-axis{position:absolute;left:0;right:0;top:34px;height:2px;background:var(--line);}
+  .stats-dot-tick{position:absolute;top:28px;width:1px;height:14px;background:var(--line);}
+  .stats-dot-tick-label{position:absolute;top:44px;transform:translateX(-50%);font-size:9px;color:var(--text-dim);white-space:nowrap;}
+  .stats-dot{
+    position:absolute;top:24px;width:20px;height:20px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;
+    color:#0d0a1a;border:2px solid var(--panel);transform:translate(-50%,0) scale(0);
+    transition:transform .5s cubic-bezier(.2,1.4,.4,1);cursor:default;
+  }
+  .stats-dot.shown{transform:translate(-50%,0) scale(1);}
+
   /* SUGGESTIONS */
   .suggest-form{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}
   .suggest-form input, .suggest-form textarea{
@@ -679,6 +717,14 @@
 
         <div class="settings-row">
           <div>
+            <b>📊 Lifetime Stats</b>
+            <div class="desc">A fun, animated look at the whole family's numbers — who's earned the most coins, pull counts, prestige levels, and more. Needs live sync connected above.</div>
+          </div>
+          <button class="btn-ghost" id="openStatsBtn">View stats</button>
+        </div>
+
+        <div class="settings-row">
+          <div>
             <b>Backup your save</b>
             <div class="desc">Your progress autosaves to this browser. Download a backup, or restore one, at any time — handy before clearing browser data or moving to a new computer.</div>
           </div>
@@ -801,6 +847,23 @@
       <button class="btn-ghost" id="prestigeCancelBtn">Cancel</button>
       <button class="btn-accent" id="prestigeConfirmBtn">Prestige now</button>
     </div>
+  </div>
+</div>
+
+<!-- LIFETIME STATS MODAL — fun, read-only animated charts (pie/bar/dot
+     plot) built from the same public `players` collection the Leaderboard
+     uses. Tucked away in Settings; needs live sync connected since it's
+     whole-family data, not a personal stat screen. -->
+<div class="modal-backdrop hidden" id="statsModal">
+  <div class="memory-card stats-card">
+    <div class="memory-header">
+      <div>
+        <div class="memory-title">📊 Lifetime Stats</div>
+        <div class="memory-sub">A fun look at everyone's numbers, family-wide — updates live.</div>
+      </div>
+      <button class="btn-ghost" id="statsCloseBtn">✕</button>
+    </div>
+    <div id="statsBody"></div>
   </div>
 </div>
 
@@ -2677,6 +2740,7 @@ let firebaseReady = false;
 let db = null;
 let unsubscribeSuggestions = null;
 let unsubscribeLeaderboard = null;
+let lastPlayersList = []; // most recent `players` snapshot, reused by the Lifetime Stats modal
 
 function getLocalSuggestions(){
   try{ return JSON.parse(localStorage.getItem(LOCAL_SUGGESTIONS_KEY)) || []; }
@@ -2834,7 +2898,9 @@ function connectFirebase(config){
       unsubscribeLeaderboard = db.collection('players').onSnapshot(snap=>{
         const list = [];
         snap.forEach(doc=> list.push({ id: doc.id, ...doc.data() }));
+        lastPlayersList = list;
         renderLeaderboard(list);
+        if(!document.getElementById('statsModal').classList.contains('hidden')) renderStatsModal();
       }, err=>{
         console.error(err);
         toast('Leaderboard sync error — check your Firestore rules.');
@@ -2883,7 +2949,9 @@ document.getElementById('clearConfigBtn').addEventListener('click', ()=>{
   if(unsubscribeLeaderboard){ unsubscribeLeaderboard(); unsubscribeLeaderboard = null; }
   setConnBadge(false);
   renderSuggestions(getLocalSuggestions());
+  lastPlayersList = [];
   renderLeaderboard([]);
+  if(!document.getElementById('statsModal').classList.contains('hidden')) renderStatsModal();
   document.getElementById('configInput').value = '';
   toast('Disconnected from live sync.');
 });
@@ -2922,6 +2990,7 @@ function pushPlayerStats(){
   db.collection('players').doc(getDeviceId()).set({
     name,
     coins: Math.floor(state.coins || 0),
+    lifetimeCoins: Math.floor(state.lifetimeCoins || 0),
     bloodCoins: bloodCoinsTotal(),
     prestigeLevel: state.prestigeLevel || 0,
     totalPulls: state.totalPulls || 0,
@@ -2977,6 +3046,173 @@ function renderLeaderboard(list){
   `;
   }).join('')}</div>`;
 }
+
+/* =========================================================
+   LIFETIME STATS MODAL — fun, read-only animated charts built from the
+   same public `players` collection the Leaderboard uses (lastPlayersList,
+   kept fresh by the onSnapshot listener above). Tucked into Settings per
+   request; pure SVG/CSS, no charting library, no writes.
+   ========================================================= */
+const STATS_COLORS = ['#8f6bff','#ff6bd6','#5cb8ff','#ffcf5c','#5cffb0','#ff9d5c','#c15cff','#4fae8a','#ff4f81','#5cffe0'];
+const PRESTIGE_MILESTONE_TICKS = [1,3,5,8,11,13,15]; // mirrors the milestone callouts in the Prestige settings row
+
+function renderStatsModal(){
+  const body = document.getElementById('statsBody');
+  if(!body) return;
+  if(!firebaseReady){
+    body.innerHTML = `<div class="stats-empty">Connect live sync (above) to see family-wide stats.</div>`;
+    return;
+  }
+  const players = lastPlayersList.filter(p => (p.name||'').trim());
+  if(!players.length){
+    body.innerHTML = `<div class="stats-empty">No one's on the board yet — play a bit and check back!</div>`;
+    return;
+  }
+  // Stable per-player color keyed off device id (not array order, which can
+  // shift between snapshots) so a player's color doesn't flicker on redraw.
+  const byId = [...players].sort((a,b)=> String(a.id).localeCompare(String(b.id)));
+  const colorOf = {};
+  byId.forEach((p,i)=> colorOf[p.id] = STATS_COLORS[i % STATS_COLORS.length]);
+
+  const totalLifetimeCoins = players.reduce((s,p)=> s + (p.lifetimeCoins||0), 0);
+  const totalPulls = players.reduce((s,p)=> s + (p.totalPulls||0), 0);
+  const topPrestige = players.reduce((m,p)=> Math.max(m, p.prestigeLevel||0), 0);
+
+  body.innerHTML = `
+    <div class="stats-summary">
+      <div class="stat-chip"><b>${players.length}</b>Players tracked</div>
+      <div class="stat-chip"><b>${totalLifetimeCoins.toLocaleString()}</b>Lifetime 🪙 (all-time)</div>
+      <div class="stat-chip"><b>${totalPulls.toLocaleString()}</b>Total pulls</div>
+      <div class="stat-chip"><b>🌟 ${topPrestige}</b>Highest Prestige</div>
+    </div>
+
+    <div class="stats-section">
+      <div class="stats-section-title">🪙 Who's earned the most coins (all-time)</div>
+      <div class="stats-section-sub">Share of lifetime coins earned family-wide — includes coins already spent, not just what's banked right now.</div>
+      <div class="stats-pie-wrap" id="statsPieWrap"></div>
+    </div>
+
+    <div class="stats-section">
+      <div class="stats-section-title">🎲 Total gacha pulls</div>
+      <div class="stats-section-sub">How many pulls everyone's made, lifetime.</div>
+      <div id="statsBarWrap"></div>
+    </div>
+
+    <div class="stats-section">
+      <div class="stats-section-title">🌟 Prestige levels</div>
+      <div class="stats-section-sub">Where everyone sits on the Prestige ladder — ticks mark the milestone levels.</div>
+      <div class="stats-dotplot" id="statsDotWrap"></div>
+    </div>
+  `;
+
+  renderStatsPie(players, colorOf, totalLifetimeCoins);
+  renderStatsBars(players, colorOf);
+  renderStatsDotPlot(players, colorOf);
+}
+
+function renderStatsPie(players, colorOf, total){
+  const wrap = document.getElementById('statsPieWrap');
+  if(!wrap) return;
+  if(total <= 0){
+    wrap.innerHTML = `<div class="stats-empty">No coins earned yet — pull a few characters!</div>`;
+    return;
+  }
+  const sorted = [...players].filter(p => (p.lifetimeCoins||0) > 0).sort((a,b)=> (b.lifetimeCoins||0)-(a.lifetimeCoins||0));
+  const R = 50, C = 2*Math.PI*R;
+  let cumulative = 0;
+  const slices = sorted.map(p=>{
+    const value = p.lifetimeCoins||0;
+    const frac = value/total;
+    const len = frac*C;
+    const startDeg = cumulative*360;
+    cumulative += frac;
+    return { p, value, frac, len, startDeg, color: colorOf[p.id] };
+  });
+  wrap.innerHTML = `
+    <svg class="stats-pie-svg" viewBox="0 0 120 120">
+      <g transform="rotate(-90 60 60)">
+        ${slices.map(s => `<circle class="stats-pie-slice" cx="60" cy="60" r="${R}" fill="none" stroke="${s.color}"
+          stroke-width="20" stroke-dasharray="0 ${C.toFixed(2)}"
+          data-target="${s.len.toFixed(2)} ${(C-s.len).toFixed(2)}"
+          style="transform:rotate(${s.startDeg.toFixed(2)}deg);transform-origin:60px 60px;"
+          ><title>${escapeHtml(s.p.name||'Anonymous')}: ${s.value.toLocaleString()} 🪙 (${Math.round(s.frac*100)}%)</title></circle>`).join('')}
+      </g>
+      <text x="60" y="56" class="stats-pie-center-value">${sorted.length}</text>
+      <text x="60" y="70" class="stats-pie-center-label">player${sorted.length===1?'':'s'}</text>
+    </svg>
+    <div class="stats-legend">
+      ${slices.map(s => `<div class="stats-legend-row">
+        <span class="stats-legend-swatch" style="background:${s.color};"></span>
+        <span class="stats-legend-name">${escapeHtml(s.p.name||'Anonymous')}</span>
+        <span class="stats-legend-value">${Math.round(s.frac*100)}%</span>
+      </div>`).join('')}
+    </div>
+  `;
+  // Two nested rAFs guarantee the browser paints the 0-length dasharray
+  // first, so the transition to the real target actually plays instead of
+  // snapping straight to its end state.
+  requestAnimationFrame(()=> requestAnimationFrame(()=>{
+    wrap.querySelectorAll('.stats-pie-slice').forEach(circle=>{
+      circle.style.strokeDasharray = circle.dataset.target;
+    });
+  }));
+}
+
+function renderStatsBars(players, colorOf){
+  const wrap = document.getElementById('statsBarWrap');
+  if(!wrap) return;
+  const sorted = [...players].sort((a,b)=> (b.totalPulls||0)-(a.totalPulls||0));
+  const max = Math.max(1, ...sorted.map(p=> p.totalPulls||0));
+  wrap.innerHTML = sorted.map(p=>{
+    const value = p.totalPulls||0;
+    const pct = Math.round((value/max)*100);
+    return `<div class="stat-bar-row">
+      <div class="stat-bar-label" title="${escapeHtml(p.name||'Anonymous')}">${escapeHtml(p.name||'Anonymous')}</div>
+      <div class="stat-bar-track"><div class="stat-bar-fill" style="background:${colorOf[p.id]};" data-target="${pct}%"></div></div>
+      <div class="stat-bar-value">${value.toLocaleString()}</div>
+    </div>`;
+  }).join('');
+  requestAnimationFrame(()=> requestAnimationFrame(()=>{
+    wrap.querySelectorAll('.stat-bar-fill').forEach(el=>{ el.style.width = el.dataset.target; });
+  }));
+}
+
+function renderStatsDotPlot(players, colorOf){
+  const wrap = document.getElementById('statsDotWrap');
+  if(!wrap) return;
+  const maxLevel = Math.max(15, ...players.map(p=> p.prestigeLevel||0));
+  const pctFor = lvl => (lvl/maxLevel)*100;
+  const ticksHtml = PRESTIGE_MILESTONE_TICKS.filter(t=> t<=maxLevel).map(t=>
+    `<div class="stats-dot-tick" style="left:${pctFor(t)}%;"></div>
+     <div class="stats-dot-tick-label" style="left:${pctFor(t)}%;">P${t}</div>`
+  ).join('');
+  // Sort so dots land in a stable stacking order, then stack same-level
+  // dots upward off the axis so they don't fully overlap each other.
+  const sorted = [...players].sort((a,b)=> (a.prestigeLevel||0)-(b.prestigeLevel||0));
+  const levelCounts = {};
+  const dotsHtml = sorted.map(p=>{
+    const lvl = p.prestigeLevel||0;
+    const stack = levelCounts[lvl] = (levelCounts[lvl]||0);
+    levelCounts[lvl]++;
+    const initials = (p.name||'?').trim().slice(0,2).toUpperCase();
+    return `<div class="stats-dot" style="left:${pctFor(lvl)}%;top:${24 - stack*16}px;background:${colorOf[p.id]};"
+      title="${escapeHtml(p.name||'Anonymous')}: Prestige ${lvl}">${escapeHtml(initials)}</div>`;
+  }).join('');
+  wrap.innerHTML = `<div class="stats-dot-axis"></div>${ticksHtml}${dotsHtml}`;
+  requestAnimationFrame(()=> requestAnimationFrame(()=>{
+    wrap.querySelectorAll('.stats-dot').forEach((el,i)=>{
+      setTimeout(()=> el.classList.add('shown'), i*70);
+    });
+  }));
+}
+
+document.getElementById('openStatsBtn').addEventListener('click', ()=>{
+  document.getElementById('statsModal').classList.remove('hidden');
+  renderStatsModal();
+});
+document.getElementById('statsCloseBtn').addEventListener('click', ()=>{
+  document.getElementById('statsModal').classList.add('hidden');
+});
 
 /* =========================================================
    ACHIEVEMENTS — personal milestones, not shown on the public
