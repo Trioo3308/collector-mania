@@ -702,6 +702,7 @@
   <div class="view active" id="view-pull">
     <div class="panel pull-stage">
       <div class="set-picker" id="setPicker"></div>
+      <div id="featuredSetBanner" style="font-size:12px;color:var(--gold);margin:-2px 0 8px;"></div>
       <div class="pull-orb-wrap">
         <div class="pull-orb" id="pullOrb">🎴</div>
         <div class="capsule-wrap" id="capsuleWrap"></div>
@@ -788,6 +789,7 @@
         <span class="conn-badge off" id="leaderboardConnBadge"><span class="dot"></span><span id="leaderboardConnText">Offline mode</span></span>
       </div>
       <div class="leaderboard-hint">Ranked by Prestige, then by coins. Updates live as everyone plays — refresh anytime to see the latest.</div>
+      <div id="familyMilestoneBanner" style="font-size:12px;color:var(--gold);margin-bottom:8px;"></div>
       <div id="leaderboardList"></div>
     </div>
   </div>
@@ -1674,6 +1676,7 @@ function defaultSave(){
     // allowed up to how many you actually own. null/empty slots mean the
     // deck isn't complete yet (see hasValidPvpDeck).
     pvpDeck: { sentinel: null, effects: [null, null, null], attacks: [null, null, null, null, null, null] },
+    lastFamilyMilestoneSeen: 0,  // highest FAMILY_MILESTONE_THRESHOLDS value this device has already celebrated — see checkFamilyMilestone
   };
 }
 
@@ -1747,6 +1750,7 @@ function migrateSave(data){
     effects: (rawDeck && Array.isArray(rawDeck.effects)) ? [0,1,2].map(i => rawDeck.effects[i] || null) : [null,null,null],
     attacks: (rawDeck && Array.isArray(rawDeck.attacks)) ? [0,1,2,3,4,5].map(i => rawDeck.attacks[i] || null) : [null,null,null,null,null,null],
   };
+  merged.lastFamilyMilestoneSeen = (data && Number.isInteger(data.lastFamilyMilestoneSeen)) ? data.lastFamilyMilestoneSeen : 0;
   merged.version = SAVE_VERSION;
   return merged;
 }
@@ -2492,13 +2496,30 @@ function creaturePoolForPull(){
   return selectedSetId ? CREATURES.filter(c => c.set === selectedSetId) : CREATURES;
 }
 
+// Rotating Featured Set (added 2026-07-25, Claude's own addition — one of
+// the two ideas from the original "what should be added?" round that never
+// got picked, see game-design-and-status.md's Open items). A different
+// themed set is "featured" each real-world day — deterministic and the same
+// for every device (no Firestore round-trip needed), so the whole family
+// sees the same featured set on a given day. Gives a modest discount on
+// THAT set's themed pulls only, meant to nudge players toward trying
+// different sets day-to-day rather than always pulling the same favorite.
+const FEATURED_SET_DISCOUNT = 0.15; // -15%, today's featured set only
+function todaysFeaturedSetId(){
+  const dayIndex = Math.floor(Date.now() / 86400000);
+  return SETS[dayIndex % SETS.length].id;
+}
+
 // Two stacking flat discounts rather than compounding multipliers, so the
-// totals stay easy to state in the UI: -20% at P5, -30% total at P11+.
+// totals stay easy to state in the UI: -20% at P5, -30% total at P11+, plus
+// an extra -15% if the currently-selected themed set happens to be today's
+// Featured Set.
 function pullCostMultiplier(){
   const lvl = state.prestigeLevel||0;
   let discount = 0;
   if(lvl >= PRESTIGE_PULL_DISCOUNT_LEVEL) discount += PRESTIGE_PULL_DISCOUNT;
   if(lvl >= PRESTIGE_PULL_DISCOUNT2_LEVEL) discount += PRESTIGE_PULL_DISCOUNT2;
+  if(selectedSetId && selectedSetId === todaysFeaturedSetId()) discount += FEATURED_SET_DISCOUNT;
   return 1 - discount;
 }
 function pullCostSingle(){ return Math.round((selectedSetId ? PULL_COST.themed.single : PULL_COST.all.single) * pullCostMultiplier()); }
@@ -2570,8 +2591,9 @@ function pullOne(pool){
 /* ---------- SET PICKER + PULL UI ---------- */
 function renderSetPicker(){
   const wrap = document.getElementById('setPicker');
+  const featuredId = todaysFeaturedSetId();
   const allChip = `<button class="set-chip ${!selectedSetId?'active':''}" data-set="">🎲 All</button>`;
-  const setChips = SETS.map(s => `<button class="set-chip ${selectedSetId===s.id?'active':''}" data-set="${s.id}">${s.icon} ${s.name}</button>`);
+  const setChips = SETS.map(s => `<button class="set-chip ${selectedSetId===s.id?'active':''}" data-set="${s.id}">${s.id===featuredId?'🌟 ':''}${s.icon} ${s.name}</button>`);
   wrap.innerHTML = [allChip].concat(setChips).join('');
   wrap.querySelectorAll('.set-chip').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -2600,6 +2622,13 @@ function updatePullUI(){
   document.getElementById('pullTargetLabel').innerHTML = set
     ? `Pulling from: <b>${set.icon} ${set.name}</b> (${set.blurb})`
     : `Pulling from: <b>🎲 All Characters</b>`;
+  const featuredBanner = document.getElementById('featuredSetBanner');
+  if(featuredBanner){
+    const featuredSet = SETS.find(s => s.id === todaysFeaturedSetId());
+    featuredBanner.textContent = featuredSet
+      ? `🌟 Today's Featured Set: ${featuredSet.icon} ${featuredSet.name} — pulls ${Math.round(FEATURED_SET_DISCOUNT*100)}% off!`
+      : '';
+  }
   document.getElementById('pullOneBtn').textContent = `Pull x1 — ${pullCostSingle()} 🪙`;
   document.getElementById('pullTenBtn').textContent = `Pull x10 — ${pullCostTen()} 🪙`;
   document.getElementById('pullHundredBtn').textContent = `Pull x100 — ${pullCostHundred()} 🪙`;
@@ -3897,6 +3926,7 @@ function connectFirebase(config){
         snap.forEach(doc=> list.push({ id: doc.id, ...doc.data() }));
         lastPlayersList = list;
         renderLeaderboard(list);
+        checkFamilyMilestone(list);
         if(!document.getElementById('statsModal').classList.contains('hidden')) renderStatsModal();
         if(document.getElementById('view-trade').classList.contains('active')) renderTradeView();
         if(document.getElementById('view-pvp').classList.contains('active')) renderPvpView();
@@ -4040,9 +4070,44 @@ function pushPlayerStats(){
   }, { merge: true }).catch(err => console.error('Leaderboard push failed', err));
 }
 
+// Family-wide milestones (added 2026-07-25, Claude's own addition — the
+// second of the two ideas from the original "what should be added?" round
+// that never got picked). Distinct from the personal Achievements panel:
+// this is a single shared number, the sum of every visible player's
+// totalPulls, celebrated once the family collectively crosses a round
+// number. No new Firestore collection/writes needed — every device already
+// receives the full `players` list live via the existing leaderboard
+// listener, so the sum is just computed client-side from data already in
+// hand. Each device tracks its own `lastFamilyMilestoneSeen` locally so the
+// celebratory toast fires once per threshold per device, not once per
+// snapshot tick (the listener can fire many times a session).
+const FAMILY_MILESTONE_THRESHOLDS = [1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000];
+
+function familyTotalPulls(list){
+  return (list||[]).reduce((sum, p) => sum + (p.totalPulls||0), 0);
+}
+
+function checkFamilyMilestone(list){
+  const total = familyTotalPulls(list);
+  const crossed = FAMILY_MILESTONE_THRESHOLDS.filter(t => total >= t);
+  const highest = crossed.length ? crossed[crossed.length-1] : 0;
+  if(highest > (state.lastFamilyMilestoneSeen||0)){
+    state.lastFamilyMilestoneSeen = highest;
+    persist();
+    sfxAchievement();
+    toast(`👨‍👩‍👧‍👦 Family milestone! You've all pulled ${highest.toLocaleString()} times together.`);
+  }
+}
+
 function renderLeaderboard(list){
   const wrap = document.getElementById('leaderboardList');
   if(!wrap) return;
+  const familyBanner = document.getElementById('familyMilestoneBanner');
+  if(familyBanner){
+    familyBanner.textContent = (firebaseReady && list.length)
+      ? `👨‍👩‍👧‍👦 Family total pulls: ${familyTotalPulls(list).toLocaleString()}`
+      : '';
+  }
   if(!firebaseReady){
     wrap.innerHTML = `<div class="leaderboard-empty">Connect live sync (⚙️ Settings) to see the public leaderboard.</div>`;
     return;
@@ -5260,6 +5325,14 @@ const ACHIEVEMENTS = [
     check: () => CREATURES.some(c => c.rarity==='elder' && (state.owned[c.id]||0) > 0) },
   { id:'first_mythic',     icon:'🌌', name:'Mythic!',          desc:'Pull your first Mythic character.',
     check: () => CREATURES.some(c => c.rarity==='mythic' && (state.owned[c.id]||0) > 0) },
+  // Added 2026-07-25 — a natural gap flagged after the Divine tier shipped:
+  // every other top-tier-at-the-time got a matching "first X" achievement
+  // (Old Timer for Elder, Mythic! for Mythic) but Divine never got one.
+  // Winning a Divine Trial is what actually grants ownership (see pullOne/
+  // resolveDivinePulls — a failed trial never adds the creature), so this
+  // check is identical in shape to the Elder/Mythic ones above.
+  { id:'first_divine',     icon:'👁️', name:'Divine!',          desc:'Pull your first Divine character (win its trial).',
+    check: () => CREATURES.some(c => c.rarity==='divine' && (state.owned[c.id]||0) > 0) },
   { id:'shiny_hunter',     icon:'💎', name:'Shiny Hunter',     desc:'Pull your first ✨ Shiny character.',
     check: () => Object.values(state.ownedShiny||{}).some(n => n > 0) },
   { id:'first_set',        icon:'🧩', name:'Set Complete',     desc:'Complete your first themed set.',
