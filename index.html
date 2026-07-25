@@ -129,6 +129,23 @@
     0%{ transform:scale(1) translate(-2%,-2%); }
     100%{ transform:scale(1.06) translate(2%,2%); }
   }
+  /* Prestige-20 exclusive (added 2026-07-25, one of Prestige 20's two
+     rewards) — user-specified design: "red, blood, flowing." A dark crimson
+     base with a slowly rising/falling, brightening/dimming overlay so the
+     red reads as something moving/pooling rather than a static tint. */
+  body[data-bg="bloodtide"]{ --bg-2:#1a0407; --accent:#ff3b3b; --accent-2:#8f0f1f; }
+  body[data-bg="bloodtide"]{ background-image:radial-gradient(circle at 25% 20%, #4a0810 0%, var(--bg-2) 50%, #120205 100%), radial-gradient(circle at 75% 80%, rgba(255,59,59,.22) 0%, transparent 45%); }
+  body[data-bg="bloodtide"]::before{
+    content:"";
+    position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background-image:radial-gradient(circle at 30% 30%, rgba(255,59,59,.3) 0%, transparent 45%), radial-gradient(circle at 70% 70%, rgba(143,15,31,.34) 0%, transparent 50%);
+    animation: bloodtideFlow 10s ease-in-out infinite alternate;
+  }
+  @keyframes bloodtideFlow{
+    0%{ transform:translateY(-3%) translateX(-1%) scale(1); filter:brightness(1); }
+    50%{ transform:translateY(1%) translateX(1%) scale(1.05); filter:brightness(1.15); }
+    100%{ transform:translateY(3%) translateX(-1%) scale(1); filter:brightness(1); }
+  }
   *{box-sizing:border-box;}
   html,body{height:100%;}
   body{
@@ -535,8 +552,13 @@
   .leaderboard-row.banner-frame-gold{border-color:#ffcf5c;box-shadow:0 0 10px rgba(255,207,92,.35);}
   .leaderboard-row.banner-frame-prism{border-color:#ff9ce6;box-shadow:0 0 10px rgba(255,156,230,.4);animation:prismShift 5s linear infinite;}
   .leaderboard-row.banner-frame-void{border-color:#8f6bff;box-shadow:0 0 10px rgba(143,107,255,.5);animation:voidPulse 2.4s ease-in-out infinite;}
+  /* Added 2026-07-25 for the new P20 Bloodbound Frame — a crimson counterpart
+     to Void Frame's violet pulse, same animation shape (distinct color only)
+     so it reads as "the new top tier" rather than an unrelated one-off. */
+  .leaderboard-row.banner-frame-blood{border-color:#ff3b3b;box-shadow:0 0 10px rgba(255,59,59,.5);animation:bloodPulse 2.4s ease-in-out infinite;}
   @keyframes prismShift{0%{filter:hue-rotate(0deg);}100%{filter:hue-rotate(360deg);}}
   @keyframes voidPulse{0%,100%{box-shadow:0 0 8px rgba(143,107,255,.35);}50%{box-shadow:0 0 16px rgba(143,107,255,.75);}}
+  @keyframes bloodPulse{0%,100%{box-shadow:0 0 8px rgba(255,59,59,.35);}50%{box-shadow:0 0 16px rgba(255,59,59,.75);}}
   .leaderboard-badge{font-size:16px;flex-shrink:0;}
 
   /* LIFETIME STATS MODAL — fun animated charts (pie/bar/dot) built from the
@@ -927,7 +949,8 @@
             </div>
             <div class="prestige-milestones">🌟 P1: Blood Sacrifice · P3: exclusive Celestial background · P5: −20% pull costs, forever</div>
             <div class="prestige-milestones">🌟 P8: exclusive Nebula background · P11: additional −10% pull costs (−30% total) · P13: +25% idle income · P15: unlocks the Sacrifice All button</div>
-            <div class="prestige-milestones">🛒 Every Prestige also earns Prestige Points, spendable in the shop below on Leaderboard banners — higher tiers unlock at P2/P4/P6/P9/P10/P14</div>
+            <div class="prestige-milestones">🌟 P17: permanent Elder/Mythic/Divine luck boost + shiny chance, plus a one-time Prestige Points bonus · P20: exclusive animated Bloodtide background, the exclusive Bloodbound Frame, and another +50% coin gain</div>
+            <div class="prestige-milestones">🛒 Every Prestige also earns Prestige Points, spendable in the shop below on Leaderboard banners — higher tiers unlock at P2/P4/P6/P9/P10/P14/P20</div>
             <div class="prestige-milestones" id="prestigeShinyLine">✨ Shiny chance rises +0.5% per Prestige level (capped at 10%) — currently 2%</div>
           </div>
           <button class="btn-accent prestige-btn" id="prestigeNowBtn" disabled>Prestige now</button>
@@ -1266,6 +1289,12 @@ const PRESTIGE_CELESTIAL_BG_LEVEL = 3;
 // further down). Declared here for the same reason as the Celestial constant
 // above — BACKGROUNDS references it directly.
 const PRESTIGE_NEBULA_BG_LEVEL = 8;
+// Prestige-20 exclusive background — added 2026-07-25 per direct user
+// request ("add a 17 and 20 prestige reward, with 20 being 2 rewards, one
+// of those being a background that actually is animated and moving"). User
+// specified the design directly when asked: "red, blood, flowing." Declared
+// here for the same reason as the two constants above.
+const PRESTIGE_BLOODTIDE_BG_LEVEL = 20;
 
 // Purchasable background themes (bought with regular coins, per Th3C0olK11d's
 // suggestion that backgrounds "could instead be normal coins"). Each swaps a
@@ -1281,6 +1310,10 @@ const BACKGROUNDS = [
   { id:'celestial', name:'Celestial',       cost:0, prestigeRequired: PRESTIGE_CELESTIAL_BG_LEVEL },
   // Second Prestige-exclusive background — see PRESTIGE_NEBULA_BG_LEVEL above.
   { id:'nebula',    name:'Nebula',          cost:0, prestigeRequired: PRESTIGE_NEBULA_BG_LEVEL },
+  // Third Prestige-exclusive background, one of Prestige 20's two rewards —
+  // see PRESTIGE_BLOODTIDE_BG_LEVEL above. User-specified design: "red,
+  // blood, flowing."
+  { id:'bloodtide', name:'Bloodtide',       cost:0, prestigeRequired: PRESTIGE_BLOODTIDE_BG_LEVEL },
 ];
 
 // Themed collections — group characters into sets. Collecting every member
@@ -1429,6 +1462,27 @@ const PRESTIGE_IDLE_BOOST = 0.25;         // +25% idle income once reached
 // should be a genuine late-game reward, not available from Prestige 1 like
 // the per-card sacrifice buttons and the rest of the Blood Sacrifice economy.
 const PRESTIGE_SACRIFICE_ALL_LEVEL = 15;
+
+// Prestige 17 & 20 milestone rewards — added 2026-07-25, direct user
+// request ("add a 17 and 20 prestige reward, with 20 being 2 rewards, one
+// of those being a background..."). User picked from a set of clarifying
+// options for each reward:
+//   - P17: "luck boost for divine/mythical/shiny + extra prestige points"
+//   - P20 (2nd reward, alongside the Bloodtide background above): "blood
+//     banner + bigger permanent coin-gain multiplier"
+// Exact numbers are Claude's judgment call (the user specified WHAT each
+// reward does, not the precise magnitudes) — chosen to feel meaningfully
+// "late-game special" without trivializing the existing Lucky Charm minigame
+// (whose CHARM_LUCK_MULTIPLIER/_TOP boosts are deliberately kept larger,
+// since those are actively earned per-pull rather than a passive standing
+// bonus) or dwarfing the P13 idle boost / P5+P11 pull discounts.
+const PRESTIGE_LUCK_BOOST_LEVEL = 17;      // passive, permanent — always active once reached, unlike a Lucky Charm charge
+const PRESTIGE_LUCK_ELDER_MULT = 1.5;      // +50% Elder pull weight
+const PRESTIGE_LUCK_TOP_MULT = 2;          // +100% Mythic/Divine pull weight
+const PRESTIGE_LUCK_SHINY_BONUS = 0.02;    // +2% shiny chance, added on top of (and can push past) SHINY_CHANCE_CAP
+const PRESTIGE_17_BONUS_POINTS = 150;      // one-time Prestige Points grant the moment P17 is first reached, on top of the normal PRESTIGE_POINTS_PER_PRESTIGE for that level-up
+const PRESTIGE_BIG_COIN_BOOST_LEVEL = 20;  // second P20 reward: an extra flat coin-gain bonus, stacking with prestigeCoinMultiplier()'s existing per-level scaling
+const PRESTIGE_BIG_COIN_BOOST = 0.50;      // +50% flat coin gain once reached
 
 // Trading — per board suggestion (Anonymous): "Add a trading system so
 // people can trade cards they need or currency." Per the user's answer to
@@ -1592,6 +1646,11 @@ const BANNERS = [
   { id:'frame_gold',  name:'Gold Frame',  type:'frame', prestigeRequired:4,  cost:80,  rowClass:'banner-frame-gold',  icon:'🖼️' },
   { id:'frame_prism', name:'Prism Frame', type:'frame', prestigeRequired:9,  cost:150, rowClass:'banner-frame-prism', icon:'🖼️' },
   { id:'frame_void',  name:'Void Frame',  type:'frame', prestigeRequired:14, cost:220, rowClass:'banner-frame-void',  icon:'🖼️' },
+  // Added 2026-07-25 as one of Prestige 20's two rewards ("blood banner") —
+  // the new top-tier frame, above Void Frame (P14). A frame (not a strip or
+  // badge) since frames are the existing "most premium" banner type and P20
+  // is the new highest Prestige milestone in the game.
+  { id:'frame_blood', name:'Bloodbound Frame', type:'frame', prestigeRequired:20, cost:300, rowClass:'banner-frame-blood', icon:'🩸' },
 ];
 
 // Pity system: guarantees a Legendary within PITY_THRESHOLD pulls of your last
@@ -1611,7 +1670,14 @@ const SHINY_CHANCE_CAP = 0.10;
 const SHINY_SELL_MULTIPLIER = 3;
 
 function currentShinyChance(){
-  return Math.min(SHINY_CHANCE_CAP, SHINY_CHANCE + (state.prestigeLevel||0) * SHINY_CHANCE_PER_PRESTIGE_LEVEL);
+  const base = Math.min(SHINY_CHANCE_CAP, SHINY_CHANCE + (state.prestigeLevel||0) * SHINY_CHANCE_PER_PRESTIGE_LEVEL);
+  // Prestige 17's luck boost (see PRESTIGE_LUCK_BOOST_LEVEL) adds a flat
+  // bonus on top of the normal per-level climb, deliberately allowed to push
+  // past SHINY_CHANCE_CAP by exactly that fixed amount — a real, late-game-
+  // exclusive edge rather than something the ordinary curve would eventually
+  // reach on its own anyway.
+  const luckBonus = (state.prestigeLevel||0) >= PRESTIGE_LUCK_BOOST_LEVEL ? PRESTIGE_LUCK_SHINY_BONUS : 0;
+  return base + luckBonus;
 }
 
 // Daily login streak — reward cycles every 7 days but the streak counter
@@ -1821,7 +1887,13 @@ function hasSacrificeAllUnlocked(){
 }
 
 function prestigeCoinMultiplier(){
-  return 1 + (state.prestigeLevel||0) * PRESTIGE_COIN_BONUS_PER_LEVEL;
+  let mult = 1 + (state.prestigeLevel||0) * PRESTIGE_COIN_BONUS_PER_LEVEL;
+  // Second Prestige-20 reward (see PRESTIGE_BIG_COIN_BOOST_LEVEL) — a flat
+  // bonus added on top of the normal per-level scaling, not folded into the
+  // per-level rate itself, so it reads as a distinct milestone jump rather
+  // than a silent change to how every earlier level already scaled.
+  if((state.prestigeLevel||0) >= PRESTIGE_BIG_COIN_BOOST_LEVEL) mult += PRESTIGE_BIG_COIN_BOOST;
+  return mult;
 }
 
 function canPrestige(){
@@ -1845,6 +1917,16 @@ function doPrestige(){
   // PRESTIGE_POINTS_PER_PRESTIGE); unlockedBanners/equippedBanners are
   // cosmetic and preserved too, same treatment as backgrounds.
   state.prestigePoints = (state.prestigePoints||0) + PRESTIGE_POINTS_PER_PRESTIGE;
+  // Prestige-17 reward: a one-time bonus grant of Prestige Points, on top of
+  // the normal per-level amount above — only fires the exact level-up that
+  // FIRST reaches 17 (not every prestige from then on), same "reward for
+  // reaching this milestone" framing as the Nebula/Celestial background
+  // unlocks and the Sacrifice All button gate.
+  let reachedLuckMilestoneNow = false;
+  if(nextLevel === PRESTIGE_LUCK_BOOST_LEVEL){
+    state.prestigePoints += PRESTIGE_17_BONUS_POINTS;
+    reachedLuckMilestoneNow = true;
+  }
   // lifetimeCoins, totalPulls, pity progress, background/unlockedBackgrounds,
   // and unlockedAchievements are intentionally preserved.
   persist();
@@ -1862,7 +1944,10 @@ function doPrestige(){
   document.getElementById('prestigeModal').classList.add('hidden');
   pushPlayerStats();
   sfxPrestige();
-  toast(`Prestige ${nextLevel} reached! Blood Sacrifice is unlocked and coin gain is up ${Math.round(prestigeCoinMultiplier()*100-100)}%.`);
+  let msg = `Prestige ${nextLevel} reached! Blood Sacrifice is unlocked and coin gain is up ${Math.round(prestigeCoinMultiplier()*100-100)}%.`;
+  if(reachedLuckMilestoneNow) msg = `Prestige ${nextLevel} reached! Elder/Mythic/Divine odds and shiny chance just got a permanent boost, plus +${PRESTIGE_17_BONUS_POINTS} bonus Prestige Points.`;
+  else if(nextLevel === PRESTIGE_BLOODTIDE_BG_LEVEL) msg = `Prestige ${nextLevel} reached! The Bloodtide background and the Bloodbound Frame are unlocked, and coin gain just jumped +${Math.round(PRESTIGE_BIG_COIN_BOOST*100)}% on top of the usual per-level bonus.`;
+  toast(msg);
 }
 
 function renderPrestigeGates(){
@@ -2532,13 +2617,23 @@ function pullCostHundred(){ return Math.round((selectedSetId ? PULL_COST.themed.
 // original suggestion (Elder, at the original 3x) and B|_O0Df!3#d's 2026-07-24
 // follow-up (Mythic and Divine, boosted further to 10x) — without touching
 // Common through Legendary or the separate Pity system below.
+// Prestige 17's passive luck boost (see PRESTIGE_LUCK_BOOST_LEVEL) stacks
+// multiplicatively with a Lucky Charm charge when both are active — the
+// charge is still worth spending even at P17+, it just compounds on top of
+// an already-better baseline rather than being made redundant by it.
 function weightedRollFromPool(pool, boosted){
   const availableRarities = Array.from(new Set(pool.map(c => c.rarity)));
+  const hasPrestigeLuck = (state.prestigeLevel||0) >= PRESTIGE_LUCK_BOOST_LEVEL;
   const weightFor = r => {
-    if(!boosted) return RARITIES[r].weight;
-    if(r === 'elder') return RARITIES[r].weight * CHARM_LUCK_MULTIPLIER;
-    if(r === 'mythic' || r === 'divine') return RARITIES[r].weight * CHARM_LUCK_MULTIPLIER_TOP;
-    return RARITIES[r].weight;
+    let w = RARITIES[r].weight;
+    if(r === 'elder'){
+      if(boosted) w *= CHARM_LUCK_MULTIPLIER;
+      if(hasPrestigeLuck) w *= PRESTIGE_LUCK_ELDER_MULT;
+    } else if(r === 'mythic' || r === 'divine'){
+      if(boosted) w *= CHARM_LUCK_MULTIPLIER_TOP;
+      if(hasPrestigeLuck) w *= PRESTIGE_LUCK_TOP_MULT;
+    }
+    return w;
   };
   const total = availableRarities.reduce((s, r) => s + weightFor(r), 0);
   let roll = Math.random() * total;
