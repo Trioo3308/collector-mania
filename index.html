@@ -501,6 +501,20 @@
   .trade-entry .trade-status.finished{color:var(--gold);}
   .trade-entry .trade-actions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
 
+  /* DEV TOOLS — hidden panel, Ctrl+Shift+D (see script section near the end
+     of the file for the unlock logic). Styling mirrors .trade-form. */
+  .dev-form{display:flex;flex-direction:column;gap:10px;}
+  .dev-form label{font-size:11px;color:var(--text-dim);display:block;margin-bottom:3px;}
+  .dev-form select, .dev-form input{
+    width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--line);
+    border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;
+  }
+  .dev-form input[type="checkbox"]{width:auto;}
+  .dev-section{border-top:1px solid var(--line);margin-top:14px;padding-top:14px;}
+  .dev-section-title{font-size:13px;font-weight:700;color:var(--gold);margin-bottom:8px;}
+  .dev-btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+  .dev-btn-row button{font-size:12px;padding:7px 12px;}
+
   /* PVP */
   .pvp-hp-row{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
   .pvp-hp-bar{position:relative;height:22px;border-radius:999px;background:var(--bg-2);border:1px solid var(--line);overflow:hidden;}
@@ -1208,6 +1222,90 @@
     <div class="reveal-flavor" style="min-height:0;">Welcome back! Here's your daily login bonus.</div>
     <div class="reveal-dupe" id="dailyBonusRewardLabel" style="color:var(--gold);font-size:20px;font-weight:800;">+50 🪙</div>
     <button class="btn-accent" id="dailyBonusClaimBtn">Claim</button>
+  </div>
+</div>
+
+<!-- DEV TOOLS — hidden, unlocked only via a secret key combo (Ctrl+Shift+D)
+     on this device. Not linked from any menu or settings screen, so a
+     family member playing normally has no way to stumble into either
+     modal below. See the DEV TOOLS script section near the end of the
+     file for the unlock/passcode logic and full caveats. -->
+<div class="modal-backdrop hidden" id="devPasscodeModal">
+  <div class="reveal-card" style="max-width:340px;">
+    <div class="reveal-name">🔧 Dev Tools</div>
+    <div class="reveal-flavor" style="min-height:0;">Enter the passcode to unlock.</div>
+    <input type="password" id="devPasscodeInput" placeholder="Passcode" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;text-align:center;margin-bottom:10px;" />
+    <div id="devPasscodeError" style="color:var(--mythic);font-size:12px;min-height:16px;margin-bottom:6px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-ghost" id="devPasscodeCancelBtn" style="flex:1;">Cancel</button>
+      <button class="btn-accent" id="devPasscodeSubmitBtn" style="flex:1;">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop hidden" id="devToolsModal">
+  <div class="memory-card stats-card">
+    <div class="memory-header">
+      <div>
+        <div class="memory-title">🔧 Dev Tools</div>
+        <div class="memory-sub">Only visible to you on this device — Ctrl+Shift+D to reopen.</div>
+      </div>
+      <button class="btn-ghost" id="devToolsCloseBtn">✕</button>
+    </div>
+    <div class="dev-form">
+      <div class="dev-section" style="border-top:none;margin-top:0;padding-top:0;">
+        <div class="dev-section-title">Currency & Points</div>
+        <label for="devCoinsInput">Coins</label>
+        <input type="number" id="devCoinsInput" min="0" />
+        <div class="dev-btn-row"><button class="btn-accent" id="devSetCoinsBtn">Set coins</button></div>
+
+        <label for="devPointsInput" style="margin-top:10px;">Prestige Points</label>
+        <input type="number" id="devPointsInput" min="0" />
+        <div class="dev-btn-row"><button class="btn-accent" id="devSetPointsBtn">Set points</button></div>
+
+        <label for="devPrestigeInput" style="margin-top:10px;">Prestige Level</label>
+        <input type="number" id="devPrestigeInput" min="0" />
+        <div class="dev-btn-row"><button class="btn-accent" id="devSetPrestigeBtn">Set level</button></div>
+      </div>
+
+      <div class="dev-section">
+        <div class="dev-section-title">Force pull outcomes</div>
+        <label for="devRaritySelect">Next real pull will be this rarity (one-shot)</label>
+        <select id="devRaritySelect"></select>
+        <div class="dev-btn-row">
+          <button class="btn-accent" id="devArmRarityBtn">Arm next pull</button>
+          <button class="btn-ghost" id="devClearRarityBtn">Clear</button>
+        </div>
+        <div id="devRarityStatus" style="font-size:11px;color:var(--text-dim);margin-top:4px;"></div>
+
+        <label for="devCreatureSelect" style="margin-top:12px;">Instantly grant a creature</label>
+        <select id="devCreatureSelect"></select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-dim);margin-top:6px;">
+          <input type="checkbox" id="devShinyCheckbox" /> Shiny
+        </label>
+        <div class="dev-btn-row"><button class="btn-accent" id="devGrantCreatureBtn">Grant</button></div>
+      </div>
+
+      <div class="dev-section">
+        <div class="dev-section-title">Unlocks (for testing unlock states)</div>
+        <div class="dev-btn-row">
+          <button class="btn-accent" id="devUnlockAchievementsBtn">Unlock all achievements</button>
+          <button class="btn-ghost" id="devLockAchievementsBtn">Lock all</button>
+        </div>
+        <div class="dev-btn-row">
+          <button class="btn-accent" id="devUnlockBannersBtn">Unlock all banners</button>
+          <button class="btn-ghost" id="devLockBannersBtn">Lock all</button>
+        </div>
+        <div class="dev-btn-row">
+          <button class="btn-accent" id="devUnlockBackgroundsBtn">Unlock all backgrounds</button>
+          <button class="btn-ghost" id="devLockBackgroundsBtn">Lock all</button>
+        </div>
+      </div>
+
+      <div class="dev-section">
+        <div class="dev-btn-row"><button class="btn-ghost" id="devForgetPasscodeBtn">Forget passcode on this device</button></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2652,11 +2750,22 @@ function pullOne(pool){
   const usedCharm = (state.charmCharges||0) > 0;
   if(usedCharm) state.charmCharges--;
 
+  // Dev Tools "arm next pull" override (see DEV TOOLS section near the end
+  // of this file) — a one-shot forced rarity for testing reveal UI/trials
+  // on demand. Only ever set via the hidden dev panel; falls back to a
+  // normal roll if the pool doesn't actually contain that rarity (e.g.
+  // Divine armed while pulling a themed set with no Divine members).
+  let devRarityOverride = null;
+  if(typeof devForcedRarity !== 'undefined' && devForcedRarity){
+    if(pool.some(c => c.rarity === devForcedRarity)) devRarityOverride = devForcedRarity;
+    devForcedRarity = null; // one-shot regardless of whether it applied
+  }
+
   // Pity: if we've gone PITY_THRESHOLD pulls without a Legendary and this
   // pool actually has one, force it instead of rolling normally.
   const poolHasLegendary = pool.some(c => c.rarity === 'legendary');
   const pity = poolHasLegendary && (state.pullsSinceLegendary + 1) >= PITY_THRESHOLD;
-  const rarity = pity ? 'legendary' : weightedRollFromPool(pool, usedCharm);
+  const rarity = devRarityOverride || (pity ? 'legendary' : weightedRollFromPool(pool, usedCharm));
   state.pullsSinceLegendary = rarity === 'legendary' ? 0 : state.pullsSinceLegendary + 1;
 
   const rarityPool = pool.filter(c => c.rarity === rarity);
@@ -5580,6 +5689,223 @@ document.getElementById('nameGateInput').addEventListener('keydown', (e)=>{
   if(e.key === 'Enter' && document.getElementById('nameGateInput').value.trim()) submitNameGate();
 });
 document.getElementById('nameGateSubmitBtn').addEventListener('click', submitNameGate);
+
+/* =========================================================
+   DEV TOOLS — hidden testing panel (2026-07-25, direct user request:
+   "make a way for me to test features out. dev tools, only visible and
+   accessible to me.")
+   ---------------------------------------------------------
+   Unlocked via a secret key combo (Ctrl+Shift+D) that prompts for a
+   passcode; there is no button or menu entry anywhere in the UI, so a
+   family member playing normally has no way to even discover this exists.
+   Once unlocked, that state (NOT the passcode itself) is remembered in
+   localStorage on that device, so the passcode only has to be entered once
+   per device — "Forget passcode on this device" in the panel re-locks it.
+
+   Honesty check, flagged per this project's standing pattern of not
+   glossing over limitations: this is a fully static, client-side site with
+   no server-side login, so "only accessible to you" really means "hidden
+   behind a secret," not unbreakable security — anyone who dug through the
+   page's JS source could in principle find the passcode check. That's an
+   accepted tradeoff for a family passion project, not a gap being papered
+   over. The passcode is stored here only as a hash (not plaintext) so a
+   casual view-source doesn't just hand it over outright.
+
+   Nothing dev-tools-related is ever synced to Firestore beyond the exact
+   same whitelist of fields pushPlayerStats() already publishes for every
+   player (coins/points/prestige/etc, indistinguishable from normal play)
+   — see that function above. devForcedRarity/devToolsUnlocked never touch
+   that payload.
+   ========================================================= */
+const DEV_UNLOCK_KEY = 'collectorMania_devUnlocked';
+
+// Passcode is "BloodtideKey20" — stored only as a hash below, not in
+// plaintext (see honesty check above for what this does and doesn't buy).
+function devHash(str){
+  let h = 0;
+  for(let i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) >>> 0; }
+  return h.toString(36);
+}
+const DEV_PASSCODE_HASH = 'mk1wrx';
+
+let devToolsUnlocked = localStorage.getItem(DEV_UNLOCK_KEY) === '1';
+let devForcedRarity = null; // set by the panel, consumed by the very next real pull (see pullOne)
+
+function openDevPasscodePrompt(){
+  document.getElementById('devPasscodeError').textContent = '';
+  document.getElementById('devPasscodeInput').value = '';
+  document.getElementById('devPasscodeModal').classList.remove('hidden');
+  setTimeout(()=> document.getElementById('devPasscodeInput').focus(), 50);
+}
+
+function submitDevPasscode(){
+  const input = document.getElementById('devPasscodeInput').value;
+  if(devHash(input) === DEV_PASSCODE_HASH){
+    devToolsUnlocked = true;
+    localStorage.setItem(DEV_UNLOCK_KEY, '1');
+    document.getElementById('devPasscodeModal').classList.add('hidden');
+    openDevTools();
+  } else {
+    document.getElementById('devPasscodeError').textContent = 'Wrong passcode.';
+  }
+}
+
+function populateDevSelects(){
+  const raritySelect = document.getElementById('devRaritySelect');
+  raritySelect.innerHTML = Object.keys(RARITIES).map(r => `<option value="${r}">${RARITIES[r].label}</option>`).join('');
+  const creatureSelect = document.getElementById('devCreatureSelect');
+  creatureSelect.innerHTML = CREATURES.map(c => `<option value="${c.id}">${c.emoji} ${c.name} (${RARITIES[c.rarity].label})</option>`).join('');
+}
+
+function refreshDevRarityStatus(){
+  const el = document.getElementById('devRarityStatus');
+  el.textContent = devForcedRarity ? `Armed: next real pull will be ${RARITIES[devForcedRarity].label}.` : '';
+}
+
+function openDevTools(){
+  document.getElementById('devCoinsInput').value = Math.floor(state.coins||0);
+  document.getElementById('devPointsInput').value = state.prestigePoints||0;
+  document.getElementById('devPrestigeInput').value = state.prestigeLevel||0;
+  populateDevSelects();
+  refreshDevRarityStatus();
+  document.getElementById('devToolsModal').classList.remove('hidden');
+}
+
+// Broad re-render after a dev-tools mutation — mirrors the refresh list
+// doPrestige() runs after resetting state, since dev actions can touch any
+// of the same fields (coins/prestige/unlocks/etc).
+function fullDevRefresh(){
+  persist();
+  renderCoins();
+  renderCollection();
+  renderSetPicker();
+  updatePullUI();
+  renderUpgradePanel();
+  renderMinigameUnlocks();
+  renderRecallUpgradePanel();
+  renderPrestigePanel();
+  renderPrestigeGates();
+  renderBgShop();
+  renderPrestigeShop();
+  renderAchievements();
+  pushPlayerStats();
+}
+
+document.addEventListener('keydown', (e)=>{
+  if(e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')){
+    e.preventDefault();
+    if(devToolsUnlocked) openDevTools();
+    else openDevPasscodePrompt();
+  }
+});
+
+document.getElementById('devPasscodeSubmitBtn').addEventListener('click', submitDevPasscode);
+document.getElementById('devPasscodeCancelBtn').addEventListener('click', ()=>{
+  document.getElementById('devPasscodeModal').classList.add('hidden');
+});
+document.getElementById('devPasscodeInput').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') submitDevPasscode();
+});
+document.getElementById('devToolsCloseBtn').addEventListener('click', ()=>{
+  document.getElementById('devToolsModal').classList.add('hidden');
+});
+
+document.getElementById('devSetCoinsBtn').addEventListener('click', ()=>{
+  const v = Math.max(0, Math.floor(Number(document.getElementById('devCoinsInput').value) || 0));
+  state.coins = v;
+  fullDevRefresh();
+  toast(`Dev: coins set to ${v.toLocaleString()}.`);
+});
+document.getElementById('devSetPointsBtn').addEventListener('click', ()=>{
+  const v = Math.max(0, Math.floor(Number(document.getElementById('devPointsInput').value) || 0));
+  state.prestigePoints = v;
+  fullDevRefresh();
+  toast(`Dev: Prestige Points set to ${v.toLocaleString()}.`);
+});
+document.getElementById('devSetPrestigeBtn').addEventListener('click', ()=>{
+  const v = Math.max(0, Math.floor(Number(document.getElementById('devPrestigeInput').value) || 0));
+  state.prestigeLevel = v;
+  fullDevRefresh();
+  toast(`Dev: Prestige level set to ${v}.`);
+});
+
+document.getElementById('devArmRarityBtn').addEventListener('click', ()=>{
+  devForcedRarity = document.getElementById('devRaritySelect').value;
+  refreshDevRarityStatus();
+  toast(`Dev: next real pull will be ${RARITIES[devForcedRarity].label}.`);
+});
+document.getElementById('devClearRarityBtn').addEventListener('click', ()=>{
+  devForcedRarity = null;
+  refreshDevRarityStatus();
+});
+
+document.getElementById('devGrantCreatureBtn').addEventListener('click', ()=>{
+  const id = document.getElementById('devCreatureSelect').value;
+  const creature = CREATURES.find(c => c.id === id);
+  if(!creature) return;
+  state.owned[id] = (state.owned[id]||0) + 1;
+  if(document.getElementById('devShinyCheckbox').checked){
+    state.ownedShiny[id] = (state.ownedShiny[id]||0) + 1;
+  }
+  state.totalPulls++;
+  const newlyCompleted = checkSetCompletions();
+  fullDevRefresh();
+  checkAchievements();
+  announceSetCompletions(newlyCompleted);
+  toast(`Dev: granted ${creature.name}.`);
+});
+
+document.getElementById('devUnlockAchievementsBtn').addEventListener('click', ()=>{
+  state.unlockedAchievements = ACHIEVEMENTS.map(a => a.id);
+  fullDevRefresh();
+  toast('Dev: all achievements unlocked.');
+});
+document.getElementById('devLockAchievementsBtn').addEventListener('click', ()=>{
+  // Note: any achievement whose check() condition is still structurally
+  // true (e.g. you still own the qualifying creature) will simply
+  // re-unlock the next time checkAchievements() runs (after a pull,
+  // prestige, etc.) — locking here doesn't touch the underlying
+  // owned/stat data those checks read, only the unlocked-ids list itself.
+  state.unlockedAchievements = [];
+  fullDevRefresh();
+  toast('Dev: all achievements locked (ones still structurally true may re-unlock on your next action).');
+});
+document.getElementById('devUnlockBannersBtn').addEventListener('click', ()=>{
+  state.unlockedBanners = BANNERS.map(b => b.id);
+  fullDevRefresh();
+  toast('Dev: all banners unlocked.');
+});
+document.getElementById('devLockBannersBtn').addEventListener('click', ()=>{
+  state.unlockedBanners = [];
+  state.equippedBanners = { strip:'', badge:'', frame:'' };
+  fullDevRefresh();
+  toast('Dev: all banners locked.');
+});
+document.getElementById('devUnlockBackgroundsBtn').addEventListener('click', ()=>{
+  state.unlockedBackgrounds = BACKGROUNDS.map(b => b.id);
+  fullDevRefresh();
+  toast('Dev: all backgrounds unlocked.');
+});
+document.getElementById('devLockBackgroundsBtn').addEventListener('click', ()=>{
+  // Note: Prestige-exclusive backgrounds (Celestial/Nebula/Bloodtide) still
+  // show as unlocked if your current Prestige level meets their
+  // requirement — see isBgUnlocked(), same rule that applies in normal
+  // play, not something this tool bypasses or should hide.
+  state.unlockedBackgrounds = ['default'];
+  if(state.background !== 'default'){
+    state.background = 'default';
+    applyBackground('default');
+  }
+  fullDevRefresh();
+  toast('Dev: all coin-purchasable backgrounds locked (Prestige-exclusive ones still show if your level qualifies).');
+});
+
+document.getElementById('devForgetPasscodeBtn').addEventListener('click', ()=>{
+  devToolsUnlocked = false;
+  localStorage.removeItem(DEV_UNLOCK_KEY);
+  document.getElementById('devToolsModal').classList.add('hidden');
+  toast('Dev: passcode forgotten on this device.');
+});
 
 /* ---------- INIT ---------- */
 function init(){
