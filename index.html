@@ -5719,8 +5719,10 @@ document.getElementById('nameGateSubmitBtn').addEventListener('click', submitNam
    ========================================================= */
 const DEV_UNLOCK_KEY = 'collectorMania_devUnlocked';
 
-// Passcode is "BloodtideKey20" — stored only as a hash below, not in
-// plaintext (see honesty check above for what this does and doesn't buy).
+// The passcode itself is intentionally never written in this file, even in
+// a comment — only its hash below. It was shared with Tristan directly in
+// chat when this was built (see honesty check above for what hashing it
+// does and doesn't buy).
 function devHash(str){
   let h = 0;
   for(let i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) >>> 0; }
