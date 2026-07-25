@@ -271,6 +271,12 @@
     background:var(--panel);border-radius:20px;padding:26px;text-align:center;
     width:100%;max-width:360px;border:2px solid var(--accent);
     animation:pop .35s cubic-bezier(.2,1.4,.4,1);
+    /* A x100 pull's multi-grid (100 cells) is far taller than any viewport;
+       without this the card grows past the screen edges with no way to
+       scroll, permanently stranding the close button off-screen. Capping
+       height + scrolling internally keeps the button reachable regardless
+       of how many cells the grid holds. */
+    max-height:85vh;overflow-y:auto;
   }
   @keyframes pop{from{transform:scale(.6);opacity:0;}to{transform:scale(1);opacity:1;}}
   .reveal-emoji{font-size:80px;margin:6px 0;filter:drop-shadow(0 0 18px currentColor);}
