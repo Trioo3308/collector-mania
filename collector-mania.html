@@ -4122,66 +4122,68 @@ function saveLocallyAndRender(entry){
   renderSuggestions(list);
 }
 
-function voteSuggestion(id){
+// Voting (added 2026-07-25, "add a downvote system"; changed same day per
+// direct follow-up: "people can change their mind and make the downvote
+// button work please"). Reddit-style toggle/switch, computed once here and
+// shared by both voteSuggestion/downvoteSuggestion below so the two can't
+// drift out of sync with each other:
+//   - clicking the direction you already voted removes your vote entirely
+//     (un-vote — you no longer feel that way about it)
+//   - clicking the OTHER direction switches your vote (removes the old
+//     one, adds the new one) rather than being blocked or stacking both
+//   - clicking with no prior vote just casts it, same as before
+// `data` is a plain {votes, voterIds, downvotes, downvoterIds} snapshot —
+// this function is pure (no reads/writes of its own) so it works the same
+// whether it's fed a Firestore transaction snapshot or a local save entry.
+function applySuggestionVote(data, deviceId, dir){
+  const voters = new Set(data.voterIds || []);
+  const downVoters = new Set(data.downvoterIds || []);
+  let votes = data.votes || 0;
+  let downvotes = data.downvotes || 0;
+  const hadUp = voters.has(deviceId);
+  const hadDown = downVoters.has(deviceId);
+
+  if(dir === 'up'){
+    if(hadUp){
+      voters.delete(deviceId); votes = Math.max(0, votes - 1);
+    }else{
+      voters.add(deviceId); votes += 1;
+      if(hadDown){ downVoters.delete(deviceId); downvotes = Math.max(0, downvotes - 1); }
+    }
+  }else{
+    if(hadDown){
+      downVoters.delete(deviceId); downvotes = Math.max(0, downvotes - 1);
+    }else{
+      downVoters.add(deviceId); downvotes += 1;
+      if(hadUp){ voters.delete(deviceId); votes = Math.max(0, votes - 1); }
+    }
+  }
+  return { votes, voterIds: Array.from(voters), downvotes, downvoterIds: Array.from(downVoters) };
+}
+
+function castSuggestionVote(id, dir){
   const deviceId = getDeviceId();
   if(firebaseReady && db){
     const ref = db.collection('suggestions').doc(id);
     db.runTransaction(async (tx)=>{
       const doc = await tx.get(ref);
       if(!doc.exists) return;
-      const data = doc.data();
-      const voters = data.voterIds || [];
-      const downVoters = data.downvoterIds || [];
-      // A device gets exactly one vote per suggestion, either direction —
-      // already having downvoted blocks upvoting too (see downvoteSuggestion
-      // below for the mirrored guard), rather than letting a device stack
-      // both an upvote and a downvote on the same suggestion.
-      if(voters.includes(deviceId) || downVoters.includes(deviceId)) return;
-      tx.update(ref, { votes: (data.votes||0)+1, voterIds: [...voters, deviceId] });
+      const patch = applySuggestionVote(doc.data(), deviceId, dir);
+      tx.update(ref, patch);
     }).catch(err=>console.error(err));
   }else{
     const list = getLocalSuggestions();
     const item = list.find(s=>s.id===id);
-    if(item && !(item.voterIds||[]).includes(deviceId) && !(item.downvoterIds||[]).includes(deviceId)){
-      item.votes = (item.votes||0)+1;
-      item.voterIds = [...(item.voterIds||[]), deviceId];
+    if(item){
+      Object.assign(item, applySuggestionVote(item, deviceId, dir));
       saveLocalSuggestions(list);
       renderSuggestions(list);
     }
   }
 }
 
-// Downvote system (added 2026-07-25, direct user request: "add a downvote
-// system"). Mirrors voteSuggestion exactly — same one-vote-per-device-
-// per-suggestion rule (see the guard there), same Firestore-transaction-
-// with-local-fallback structure — just incrementing downvotes/downvoterIds
-// instead of votes/voterIds. Suggestions are ranked by net score
-// (suggestionNetScore, votes minus downvotes) rather than raw upvotes once
-// this can disagree with them.
-function downvoteSuggestion(id){
-  const deviceId = getDeviceId();
-  if(firebaseReady && db){
-    const ref = db.collection('suggestions').doc(id);
-    db.runTransaction(async (tx)=>{
-      const doc = await tx.get(ref);
-      if(!doc.exists) return;
-      const data = doc.data();
-      const voters = data.voterIds || [];
-      const downVoters = data.downvoterIds || [];
-      if(voters.includes(deviceId) || downVoters.includes(deviceId)) return;
-      tx.update(ref, { downvotes: (data.downvotes||0)+1, downvoterIds: [...downVoters, deviceId] });
-    }).catch(err=>console.error(err));
-  }else{
-    const list = getLocalSuggestions();
-    const item = list.find(s=>s.id===id);
-    if(item && !(item.voterIds||[]).includes(deviceId) && !(item.downvoterIds||[]).includes(deviceId)){
-      item.downvotes = (item.downvotes||0)+1;
-      item.downvoterIds = [...(item.downvoterIds||[]), deviceId];
-      saveLocalSuggestions(list);
-      renderSuggestions(list);
-    }
-  }
-}
+function voteSuggestion(id){ castSuggestionVote(id, 'up'); }
+function downvoteSuggestion(id){ castSuggestionVote(id, 'down'); }
 
 document.getElementById('submitSuggestBtn').addEventListener('click', ()=>{
   const textEl = document.getElementById('suggestText');
