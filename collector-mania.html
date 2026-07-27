@@ -659,11 +659,17 @@
     display:flex;justify-content:space-between;gap:12px;align-items:flex-start;
   }
   .suggestion-item .meta{font-size:11px;color:var(--text-dim);margin-top:4px;}
+  .vote-actions{display:flex;gap:6px;flex-shrink:0;}
   .vote-btn{
-    background:var(--panel);border:1px solid var(--line);min-width:56px;text-align:center;
+    background:var(--panel);border:1px solid var(--line);min-width:52px;text-align:center;
     display:flex;flex-direction:column;align-items:center;padding:6px 10px;font-size:13px;
   }
   .vote-btn.voted{background:linear-gradient(135deg,var(--accent),var(--accent-2));}
+  /* Downvote (added 2026-07-25, direct user request: "add a downvote
+     system"). Distinct red gradient when cast, mirroring the upvote
+     button's own highlight, so it's obvious which direction you already
+     voted at a glance. */
+  .vote-btn.voted-down{background:linear-gradient(135deg,#8a1c3a,#c1305c);color:#ffe3ec;}
   .conn-badge{font-size:11px;padding:4px 10px;border-radius:999px;display:inline-flex;align-items:center;gap:6px;}
   .conn-badge.live{background:rgba(92,255,176,.15);color:var(--good);}
   .conn-badge.off{background:rgba(255,107,107,.15);color:#ff8a8a;}
@@ -4042,16 +4048,26 @@ function setConnBadge(live){
   });
 }
 
+// Net score used for ranking (added alongside the downvote system,
+// 2026-07-25) — upvotes minus downvotes, so a suggestion with a lot of both
+// doesn't outrank one the family is more united on. Missing downvotes
+// (any suggestion doc from before this feature shipped) defaults to 0,
+// same defensive-default pattern as votes/voterIds throughout this file.
+function suggestionNetScore(s){
+  return (s.votes||0) - (s.downvotes||0);
+}
+
 function renderSuggestions(list){
   const wrap = document.getElementById('suggestList');
   const deviceId = getDeviceId();
-  const sorted = [...list].sort((a,b)=> (b.votes||0) - (a.votes||0));
+  const sorted = [...list].sort((a,b)=> suggestionNetScore(b) - suggestionNetScore(a));
   if(sorted.length === 0){
     wrap.innerHTML = `<div style="color:var(--text-dim);font-size:13px;">No suggestions yet — be the first!</div>`;
     return;
   }
   wrap.innerHTML = sorted.map(s=>{
-    const voted = (s.voterIds||[]).includes(deviceId);
+    const votedUp = (s.voterIds||[]).includes(deviceId);
+    const votedDown = (s.downvoterIds||[]).includes(deviceId);
     const when = s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '';
     return `
       <div class="suggestion-item">
@@ -4059,12 +4075,18 @@ function renderSuggestions(list){
           <div>${escapeHtml(s.text)}</div>
           <div class="meta">— ${escapeHtml(s.author || 'Anonymous')} ${when ? '· ' + when : ''}</div>
         </div>
-        <button class="vote-btn ${voted?'voted':''}" data-id="${s.id}">▲<br>${s.votes||0}</button>
+        <div class="vote-actions">
+          <button class="vote-btn up ${votedUp?'voted':''}" data-id="${s.id}" data-dir="up">▲<br>${s.votes||0}</button>
+          <button class="vote-btn down ${votedDown?'voted-down':''}" data-id="${s.id}" data-dir="down">▼<br>${s.downvotes||0}</button>
+        </div>
       </div>
     `;
   }).join('');
-  wrap.querySelectorAll('.vote-btn').forEach(btn=>{
+  wrap.querySelectorAll('.vote-btn.up').forEach(btn=>{
     btn.addEventListener('click', ()=> voteSuggestion(btn.dataset.id));
+  });
+  wrap.querySelectorAll('.vote-btn.down').forEach(btn=>{
+    btn.addEventListener('click', ()=> downvoteSuggestion(btn.dataset.id));
   });
 }
 
@@ -4079,11 +4101,14 @@ function submitSuggestion(text, author){
     id: 'sg_' + Math.random().toString(36).slice(2) + Date.now().toString(36),
     text, author: author || 'Anonymous',
     votes: 0, voterIds: [],
+    downvotes: 0, downvoterIds: [],
     createdAt: Date.now(),
   };
   if(firebaseReady && db){
     db.collection('suggestions').add({
-      text: entry.text, author: entry.author, votes: 0, voterIds: [], createdAt: Date.now(),
+      text: entry.text, author: entry.author,
+      votes: 0, voterIds: [], downvotes: 0, downvoterIds: [],
+      createdAt: Date.now(),
     }).catch(err=>{ console.error(err); toast('Could not sync — saved locally instead.'); saveLocallyAndRender(entry); });
   }else{
     saveLocallyAndRender(entry);
@@ -4106,15 +4131,52 @@ function voteSuggestion(id){
       if(!doc.exists) return;
       const data = doc.data();
       const voters = data.voterIds || [];
-      if(voters.includes(deviceId)) return; // already voted
+      const downVoters = data.downvoterIds || [];
+      // A device gets exactly one vote per suggestion, either direction —
+      // already having downvoted blocks upvoting too (see downvoteSuggestion
+      // below for the mirrored guard), rather than letting a device stack
+      // both an upvote and a downvote on the same suggestion.
+      if(voters.includes(deviceId) || downVoters.includes(deviceId)) return;
       tx.update(ref, { votes: (data.votes||0)+1, voterIds: [...voters, deviceId] });
     }).catch(err=>console.error(err));
   }else{
     const list = getLocalSuggestions();
     const item = list.find(s=>s.id===id);
-    if(item && !(item.voterIds||[]).includes(deviceId)){
+    if(item && !(item.voterIds||[]).includes(deviceId) && !(item.downvoterIds||[]).includes(deviceId)){
       item.votes = (item.votes||0)+1;
       item.voterIds = [...(item.voterIds||[]), deviceId];
+      saveLocalSuggestions(list);
+      renderSuggestions(list);
+    }
+  }
+}
+
+// Downvote system (added 2026-07-25, direct user request: "add a downvote
+// system"). Mirrors voteSuggestion exactly — same one-vote-per-device-
+// per-suggestion rule (see the guard there), same Firestore-transaction-
+// with-local-fallback structure — just incrementing downvotes/downvoterIds
+// instead of votes/voterIds. Suggestions are ranked by net score
+// (suggestionNetScore, votes minus downvotes) rather than raw upvotes once
+// this can disagree with them.
+function downvoteSuggestion(id){
+  const deviceId = getDeviceId();
+  if(firebaseReady && db){
+    const ref = db.collection('suggestions').doc(id);
+    db.runTransaction(async (tx)=>{
+      const doc = await tx.get(ref);
+      if(!doc.exists) return;
+      const data = doc.data();
+      const voters = data.voterIds || [];
+      const downVoters = data.downvoterIds || [];
+      if(voters.includes(deviceId) || downVoters.includes(deviceId)) return;
+      tx.update(ref, { downvotes: (data.downvotes||0)+1, downvoterIds: [...downVoters, deviceId] });
+    }).catch(err=>console.error(err));
+  }else{
+    const list = getLocalSuggestions();
+    const item = list.find(s=>s.id===id);
+    if(item && !(item.voterIds||[]).includes(deviceId) && !(item.downvoterIds||[]).includes(deviceId)){
+      item.downvotes = (item.downvotes||0)+1;
+      item.downvoterIds = [...(item.downvoterIds||[]), deviceId];
       saveLocalSuggestions(list);
       renderSuggestions(list);
     }
