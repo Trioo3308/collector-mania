@@ -4170,7 +4170,21 @@ function castSuggestionVote(id, dir){
       if(!doc.exists) return;
       const patch = applySuggestionVote(doc.data(), deviceId, dir);
       tx.update(ref, patch);
-    }).catch(err=>console.error(err));
+    }).catch(err=>{
+      console.error(err);
+      // A silently-swallowed error here means clicking vote buttons looks
+      // like it does nothing at all (this bit us for real: the Firestore
+      // security rules from FIREBASE_SETUP.md only allow updates to
+      // votes/voterIds, so every downvote/switch write to downvotes/
+      // downvoterIds gets rejected with permission-denied unless the
+      // rule has been updated to also allow those two fields). Surface it
+      // instead of failing invisibly.
+      if(err && err.code === 'permission-denied'){
+        toast('Vote blocked by Firestore rules — see FIREBASE_SETUP.md');
+      }else{
+        toast('Vote failed to save — try again');
+      }
+    });
   }else{
     const list = getLocalSuggestions();
     const item = list.find(s=>s.id===id);
